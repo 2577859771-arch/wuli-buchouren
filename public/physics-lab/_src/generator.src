@@ -1,0 +1,175 @@
+@title 交流发电机
+@sub 线圈在匀强磁场中转动，产生正弦交流电
+@badge 有限差分 −NΔΦ⁄Δt · 步长 1/2000 s
+@hud
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i> / s</span><span id="h-t">0.000</span><span class="th">—</span>
+      <span class="k">转角 <i class="v">θ</i></span><span id="h-a">0°</span><span class="th">—</span>
+      <span class="k">磁通量 <i class="v">Φ</i> / Wb</span><span id="h-p">0</span><span class="th" id="h-pt">0</span>
+      <span class="k">电动势 <i class="v">e</i> / V</span><span id="h-e">0</span><span class="th" id="h-et">0</span>
+@legend
+      <div><span class="sw bar" style="background:var(--back)"></span>磁感线（N → S）</div>
+      <div><span class="sw bar" style="background:var(--ground)"></span>线圈平面的法线</div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>两条边的线速度</div>
+@aside
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="B">磁感应强度</label><input type="range" id="B" min="0.1" max="1" step="0.05" value="0.5"><output id="Bo"></output></div>
+      <div class="row"><label for="N">匝数 <i class="v">N</i></label><input type="range" id="N" min="10" max="200" step="10" value="100"><output id="No"></output></div>
+      <div class="row"><label for="S">线圈面积</label><input type="range" id="S" min="0.01" max="0.08" step="0.005" value="0.04"><output id="So"></output></div>
+      <div class="row"><label for="n">转速</label><input type="range" id="n" min="0.2" max="2" step="0.05" value="0.5"><output id="no"></output></div>
+      <div class="row"><label for="R">负载电阻</label><input type="range" id="R" min="2" max="50" step="1" value="10"><output id="Ro"></output></div>
+      <div class="row"><label for="ph">起始位置</label><select id="ph"><option value="0" selected>中性面（线圈 ⊥ B）</option><option value="90">线圈平面 ∥ B</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">开始转动</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tField" checked>磁感线</label>
+        <label><input type="checkbox" id="tVec" checked>法线与速度</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">转速放慢到每秒零点几圈便于观察；线圈内阻忽略。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">Φ</i> = <i class="v">BS</i> cos <i class="v">ωt</i>，<i class="v">e</i> = −<i class="v">N</i> d<i class="v">Φ</i>⁄d<i class="v">t</i> = <i class="v">NBSω</i> sin <i class="v">ωt</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">E</i>有效 = <i class="v">E</i>ₘ ⁄ √2</div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq"><i class="v">P</i> = <i class="v">E</i>有效² ⁄ <i class="v">R</i></div><div class="sub" id="f3"></div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>峰值 <i class="v">E</i>ₘ / V</td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td>有效值 / V</td><td id="t2">—</td><td id="s2">—</td><td id="e2">—</td></tr>
+          <tr><td>平均功率 / W</td><td id="t3">—</td><td id="s3">—</td><td id="e3">—</td></tr>
+          <tr><td>周期 / s</td><td id="t4">—</td><td id="s4">—</td><td id="e4">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note">磁通量最大时电动势为零（中性面），磁通量为零时电动势最大：电动势取决于磁通量的变化率，而不是磁通量本身。</p>
+    </section>
+    <section>
+      <h2>图像</h2>
+      <canvas class="chart" id="chartP"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--back)"></span><i class="v">Φ</i>–<i class="v">t</i></span></div>
+      <canvas class="chart" id="chartE" style="margin-top:8px"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ghost)"></span><i class="v">e</i>–<i class="v">t</i> 仿真</span><span><span class="sw bar" style="background:var(--theory)"></span>理论（虚线）</span></div>
+    </section>
+@script
+const DT = 1/2000, U = 5;   // 1 m = 5 场景单位
+const P = {B:0.5, N:100, S:0.04, n:0.5, R:10, ph:0};
+Lab.applyQuestion(P);
+const S = {t:0, phiPrev:null, eMax:0, e2:0, tAcc:0, zc:[], period:null, rms:null};
+const pl = Lab.player($('goBtn'), {idle:'开始转动'});
+const mats = { nPole: Lab.std('--f-g', {roughness:0.5}), sPole: Lab.std('--ghost', {roughness:0.5}), coil: Lab.std('--ball', {roughness:0.35, metalness:0.5}),
+  shaft: Lab.std('--ink-2', {metalness:0.6, roughness:0.3}), fl: Lab.lineMat('--back', {transparent:true, opacity:0.55}), wire: Lab.lineMat('--ink-2'),
+  lamp: new THREE.MeshStandardMaterial({color:0xfff3d0, emissive:0xffb627, emissiveIntensity:0, roughness:0.3}) };
+Lab.floor(scene, 14, 10, -1.5);
+const rig = new THREE.Group(); scene.add(rig);
+const coil = new THREE.Group(); scene.add(coil);
+const fieldG = new THREE.Group(); scene.add(fieldG);
+const aN = Lab.arrow('--ground', 0.12), aV1 = Lab.arrow('--ink', 0.08), aV2 = Lab.arrow('--ink', 0.08); scene.add(aN, aV1, aV2);
+const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 16), mats.lamp); lamp.position.set(0, -0.4, 3.4); scene.add(lamp);
+const lampLight = new THREE.PointLight(0xffc860, 0, 4); lampLight.position.copy(lamp.position); scene.add(lampLight);
+const chP = Lab.Chart($('chartP'), {xLabel:'t / s', series:[{color:'--back'}]});
+const chE = Lab.Chart($('chartE'), {xLabel:'t / s', series:[{color:'--ghost'}, {color:'--theory', dash:true}]});
+const w = () => 2*Math.PI*P.n, Em = () => P.N*P.B*P.S*w();
+const ang = t => w()*t + P.ph*Math.PI/180;
+
+function build(){
+  while (rig.children.length){ const o = rig.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  while (coil.children.length){ const o = coil.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  while (fieldG.children.length){ const o = fieldG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const side = Math.sqrt(P.S)*U, gap = side/2 + 0.6;
+  // 磁极
+  [[-1, mats.nPole, 'N'], [1, mats.sPole, 'S']].forEach(([s, m, t]) => {
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.6, side + 0.6, side + 0.8), m); pole.position.set(s*(gap + 0.3), 0, 0); pole.castShadow = true; rig.add(pole);
+    const l = Lab.label(t, s < 0 ? '--f-g' : '--ghost', 0.4); l.position.set(s*(gap + 0.3) - 0.1, side/2 + 0.6, 0); rig.add(l);
+  });
+  // 磁感线
+  const pts = [];
+  for (let y = -side/2; y <= side/2 + 1e-6; y += side/4) for (let z = -side/2; z <= side/2 + 1e-6; z += side/4) pts.push(-gap, y, z, gap, y, z);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); fieldG.add(new THREE.LineSegments(g, mats.fl));
+  for (let y = -side/2; y <= side/2 + 1e-6; y += side/2){ const a = Lab.arrow('--back', 0.08); a.show(new THREE.Vector3(gap - 0.35, y, -side/2 - 0.05), new THREE.Vector3(0.3, 0, 0), 1, true); fieldG.add(a); }
+  // 线圈：画 3 圈示意多匝，绕 z 轴转动
+  for (let k=0;k<3;k++){
+    const o = (k - 1)*0.025, h = side/2;
+    const pr = [new THREE.Vector3(o, -h, -h), new THREE.Vector3(o, h, -h), new THREE.Vector3(o, h, h), new THREE.Vector3(o, -h, h)];
+    const path = new THREE.CurvePath(); for (let i=0;i<4;i++) path.add(new THREE.LineCurve3(pr[i], pr[(i+1)%4]));
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, 64, 0.022, 6, true), mats.coil); tube.castShadow = true; coil.add(tube);
+  }
+  // 转轴与滑环
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, side + 2.2, 12), mats.shaft); shaft.rotation.x = Math.PI/2; shaft.position.z = 0.6; rig.add(shaft);
+  [side/2 + 0.6, side/2 + 0.85].forEach(z => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 8, 24), mats.coil); r.position.z = z; rig.add(r); });
+  // 外电路
+  const ext = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -0.14, side/2 + 0.6), new THREE.Vector3(0, -0.4, side/2 + 0.6), new THREE.Vector3(-0.6, -0.4, side/2 + 0.6), new THREE.Vector3(-0.6, -0.4, 3.4), new THREE.Vector3(-0.22, -0.4, 3.4)]), mats.wire);
+  const ext2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -0.14, side/2 + 0.85), new THREE.Vector3(0.6, -0.4, side/2 + 0.85), new THREE.Vector3(0.6, -0.4, 3.4), new THREE.Vector3(0.22, -0.4, 3.4)]), mats.wire);
+  rig.add(ext, ext2);
+  const ll = Lab.label('负载', '--ink-2', 0.18); ll.position.set(0.3, -0.05, 3.4); rig.add(ll);
+  stage.setHome(new THREE.Vector3(0, 0, 0.8), new THREE.Vector3(3.2, 2.6, 6.2));
+  stage.overheadLight(0, 0.8, 4, 1.5);
+}
+function reset(){
+  S.t = 0; S.phiPrev = null; S.eMax = 0; S.e2 = 0; S.tAcc = 0; S.zc = []; S.period = null; S.rms = null;
+  build();
+  const T = 1/P.n, Tm = 3*T;
+  chP.clear(); chE.clear(); chP.setXMax(Tm); chE.setXMax(Tm);
+  chP.setYRange(-P.B*P.S*1.15, P.B*P.S*1.15); chE.setYRange(-Em()*1.15, Em()*1.15);
+  for (let i=0;i<=180;i++){ const t = Tm*i/180; chE.push(1, t, Em()*Math.sin(ang(t))); }
+  chP.push(0, 0, P.B*P.S*Math.cos(ang(0))); chP.draw(); chE.draw();
+  pl.set('idle'); formulas(); view(0);
+}
+pl.onRestart = reset;
+let eNow = 0;
+function step(){
+  const phi = P.B*P.S*Math.cos(ang(S.t + DT));   // 线圈法线与 B 夹角的余弦 × BS
+  const phiPrev = P.B*P.S*Math.cos(ang(S.t));
+  const e = -P.N*(phi - phiPrev)/DT;               // 法拉第定律的数值形式
+  const ePrev = eNow; eNow = e; S.t += DT;
+  if (Math.abs(e) > S.eMax) S.eMax = Math.abs(e);
+  S.e2 += e*e*DT; S.tAcc += DT;
+  if (S.t > DT*2 && ePrev < 0 && e >= 0){ S.zc.push(S.t); if (S.zc.length >= 2 && S.period === null){ S.period = S.zc[1] - S.zc[0]; } }
+  if (S.period !== null && S.rms === null && S.t >= S.zc[0] + S.period){ /* 用第一个完整周期以外的累积值 */ }
+  if (S.tAcc >= 1/P.n && S.rms === null){ S.rms = Math.sqrt(S.e2/S.tAcc); formulas(); }
+  const n = Math.round(S.t/DT);
+  if (n % 20 === 0 && S.t <= 3/P.n){ chP.push(0, S.t, phi); chE.push(0, S.t, e); }
+  if (n % 400 === 0) formulas();
+}
+const drive = Lab.stepper(DT, step);
+function formulas(){
+  const em = Em(), rms = em/Math.SQRT2;
+  Lab.text('f1', `ω = ${w().toFixed(4)} rad/s，Eₘ = NBSω = ${P.N}×${P.B}×${P.S}×${w().toFixed(3)} = ${em.toFixed(4)} V`);
+  Lab.text('f2', `E有效 = ${rms.toFixed(4)} V`); Lab.text('f3', `P = ${(rms*rms/P.R).toFixed(4)} W`);
+  Lab.text('t1', em.toFixed(4)); Lab.text('t2', rms.toFixed(4)); Lab.text('t3', (rms*rms/P.R).toFixed(4)); Lab.text('t4', (1/P.n).toFixed(4));
+  const full = S.tAcc >= 1/P.n;
+  Lab.text('s1', full ? S.eMax.toFixed(4) : '测量中…'); Lab.text('e1', full ? Lab.relErr(em, S.eMax) : '—');
+  Lab.text('s2', S.rms !== null ? S.rms.toFixed(4) : '测量中…'); Lab.text('e2', S.rms !== null ? Lab.relErr(rms, S.rms) : '—');
+  Lab.text('s3', S.rms !== null ? (S.rms*S.rms/P.R).toFixed(4) : '测量中…'); Lab.text('e3', S.rms !== null ? Lab.relErr(rms*rms/P.R, S.rms*S.rms/P.R) : '—');
+  Lab.text('s4', S.period !== null ? S.period.toFixed(4) : '测量中…'); Lab.text('e4', S.period !== null ? Lab.relErr(1/P.n, S.period) : '—');
+}
+function view(){
+  const a = ang(S.t); coil.rotation.z = a;
+  fieldG.visible = $('tField').checked;
+  const on = $('tVec').checked, side = Math.sqrt(P.S)*U;
+  const nrm = new THREE.Vector3(Math.cos(a), Math.sin(a), 0);
+  aN.show(new THREE.Vector3(0, 0, -side/2 - 0.1), nrm, 1.0, on);
+  // 平行于转轴的两条边位于线圈平面内，距轴 side/2，速度沿切向
+  const r = side/2, pA = new THREE.Vector3(-Math.sin(a)*r, Math.cos(a)*r, 0), pB = pA.clone().negate();
+  const vA = new THREE.Vector3(-Math.cos(a), -Math.sin(a), 0), vB = vA.clone().negate();
+  aV1.show(pA, vA, 0.5, on); aV2.show(pB, vB, 0.5, on);
+  const phi = P.B*P.S*Math.cos(a), eT = Em()*Math.sin(a), e = pl.phase === 'idle' ? eT : eNow;
+  const pw = e*e/P.R, pmax = Em()*Em()/P.R;
+  mats.lamp.emissiveIntensity = 1.6*pw/pmax; lampLight.intensity = 1.2*pw/pmax;
+  Lab.text('h-t', S.t.toFixed(3)); Lab.text('h-a', ((a*180/Math.PI) % 360).toFixed(1) + '°');
+  Lab.text('h-p', phi.toFixed(5)); Lab.text('h-pt', phi.toFixed(5));
+  Lab.text('h-e', e.toFixed(4)); Lab.text('h-et', eT.toFixed(4));
+}
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, 1); view(); chP.draw(); chE.draw(); } });
+Lab.range('B', v => v.toFixed(2)+' T', v => { P.B = v; reset(); });
+Lab.range('N', v => v+' 匝', v => { P.N = v; reset(); });
+Lab.range('S', v => v.toFixed(3)+' m²', v => { P.S = v; reset(); });
+Lab.range('n', v => v.toFixed(2)+' r/s', v => { P.n = v; reset(); });
+Lab.range('R', v => v+' Ω', v => { P.R = v; reset(); });
+['B','N','S','n','R'].forEach(k => P[k] = +$(k).value);
+$('ph').addEventListener('change', e => { P.ph = +e.target.value; reset(); });
+$('resetBtn').addEventListener('click', reset);
+['tField','tVec'].forEach(id => $(id).addEventListener('change', view));
+reset();

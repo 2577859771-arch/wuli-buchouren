@@ -1,0 +1,23 @@
+import {readFile,writeFile,mkdir,readdir,rm,cp} from 'node:fs/promises';
+import {lessons} from '../public/content.js';
+import {visualStories} from '../public/lesson-visuals.js';
+const questionSource=(await readFile('public/question-3d.js','utf8')).replace(/^export /gm,'');
+await writeFile('public/physics-lab/lib/question-runtime.js','/* Generated from public/question-3d.js by build.mjs. */\n(function(){\n'+questionSource+'\nwindow.PhysicsQuestion3D={models:question3DModels,validate:validateQuestion3D};\n})();');
+const gifLicense=await readFile('node_modules/gifenc/LICENSE.md','utf8');
+await writeFile('public/gifenc.js','/*\n'+gifLicense.replaceAll('*/','* /')+'\n*/\n'+await readFile('node_modules/gifenc/dist/gifenc.esm.js','utf8'));
+await mkdir('public/vendor',{recursive:true});
+for(const [source,target] of [['katex/dist/katex.mjs','katex.js'],['katex/dist/katex.min.css','katex.css'],['marked/lib/marked.esm.js','marked.js'],['dompurify/dist/purify.es.mjs','dompurify.js']])await cp('node_modules/'+source,'public/vendor/'+target);
+await cp('node_modules/katex/dist/fonts','public/vendor/fonts',{recursive:true});
+for(const [name,license] of [['katex','LICENSE'],['marked','LICENSE'],['dompurify','LICENSE']])await cp('node_modules/'+name+'/'+license,'public/vendor/'+name+'-LICENSE.txt');
+const assets={},types={js:'text/javascript',css:'text/css',html:'text/html',txt:'text/plain',svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',wasm:'application/wasm',json:'application/json',woff2:'font/woff2',woff:'font/woff',ttf:'font/ttf',mp4:'video/mp4'};
+async function collect(directory,prefix=''){for(const entry of await readdir(directory,{withFileTypes:true})){if(/\.mp4\.sb-/.test(entry.name))continue;const relative=prefix+entry.name,path=directory+'/'+entry.name;if(entry.isDirectory()){await collect(path,relative+'/');continue;}const ext=entry.name.split('.').pop();if(ext==='mp4'){assets['/'+relative]={external:true,type:types.mp4};continue;}const binary=['woff2','woff','ttf','png','jpg','jpeg','webp','wasm','ico'].includes(ext),bytes=await readFile(path);assets['/'+relative]={body:binary?bytes.toString('base64'):bytes.toString('utf8'),type:types[ext]||'application/octet-stream',binary};}}
+await collect('public');
+const source=(await readFile('worker/index.js','utf8')).replace("import {lab3dContentSecurityPolicy,staticAssetPath} from './lab3d-policy.js';",'').replace("import {accountMailAPI,mailConfiguration,issueAccountToken} from './account-mail.js';",'').replace(/^import .* from '\.\.\/public\/question-3d\.js';$/m,'');
+const mail=(await readFile('worker/account-mail.js','utf8')).replace(/^export /gm,'');
+const labPolicy=(await readFile('worker/lab3d-policy.js','utf8')).replace(/^export /gm,'');
+const problemSource=(await readFile('public/problem-physics.js','utf8')).replace(/^export /gm,'');
+await rm('dist',{recursive:true,force:true});await mkdir('dist/server',{recursive:true});
+await writeFile('dist/server/index.js','const VISUAL_STORIES='+JSON.stringify(visualStories)+';\nconst ASSETS='+JSON.stringify(assets)+';\nconst COURSES='+JSON.stringify(lessons)+';\n'+problemSource+'\n'+questionSource+'\n'+labPolicy+'\n'+mail+'\n'+source);
+await cp('public/media','dist/public/media',{recursive:true});
+await cp('drizzle','dist/drizzle',{recursive:true});
+console.log('Built Worker, '+lessons.length+' lessons, '+Object.keys(assets).length+' assets; no client secrets.');

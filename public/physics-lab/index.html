@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>物理实验 3D</title>
+<link rel="stylesheet" href="lib/lab.css">
+<style>
+body{height:auto;min-height:100%}
+.wrap{max-width:900px;margin:0 auto;padding:48px 24px 64px}
+header h1{font-family:"Noto Serif SC",serif;font-weight:900;font-size:clamp(32px,6vw,52px);letter-spacing:.05em;margin:0;line-height:1.15}
+header p{color:var(--ink-2);max-width:38em;margin:12px 0 0;font-size:15px}
+nav.jump{display:flex;gap:18px;margin-top:22px;font-size:14px}
+nav.jump a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+nav.jump a:hover{border-color:var(--ink)}
+h3.cat{font-family:"Noto Serif SC",serif;font-size:26px;margin:48px 0 0;padding-bottom:8px;border-bottom:2px solid var(--ink);display:flex;align-items:baseline;gap:12px}
+h3.cat span{font-family:"Noto Sans SC",sans-serif;font-size:13px;font-weight:400;color:var(--ink-2)}
+ol{list-style:none;margin:0;padding:0}
+li a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 24px;padding:18px 4px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+li a:hover{background:var(--paper)}
+li a:hover h2{color:var(--ghost)}
+li h2{font-size:20px;margin:0}
+li .d{color:var(--ink-2);grid-column:1}
+li .eq{grid-column:2;grid-row:1 / span 2;align-self:center;font-family:"Times New Roman","Noto Serif SC",serif;font-style:italic;font-size:17px;color:var(--ink-2);white-space:nowrap}
+li .tag{font-size:12px;color:var(--ink-2);grid-column:1}
+footer{margin-top:32px;color:var(--ink-2);font-size:12.5px}
+@media (max-width:640px){ li a{grid-template-columns:1fr} li .eq{grid-column:1;grid-row:auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>物理实验 3D</h1>
+    <p><a href="../lab3d.html">返回网站 3D 实验室 ↗</a> · <a href="../#home">返回物理不愁人首页</a></p>
+    <p>十八个可交互的高中物理实验，涵盖力学、电磁学、光学和热学。每个实验都把仿真结果和教材公式并排对照，参数可调，视角可拖动。</p>
+    <nav class="jump" aria-label="分类"><a href="#c0">力学</a><a href="#c1">电磁学</a><a href="#c2">光学</a><a href="#c3">热学</a></nav>
+  </header>
+  <h3 class="cat" id="c0">力学<span>8 个实验</span></h3>
+  <ol>
+    <li><a href="experiments/projectile.html"><h2>平抛运动</h2><span class="d">频闪轨迹加三个方向的投影，把运动拆成两个分运动</span><span class="eq">x = v₀t，y = h − ½gt²</span><span class="tag">Rapier 物理引擎</span></a></li>
+    <li><a href="experiments/incline.html"><h2>斜面上的物块</h2><span class="d">重力分解、静摩擦与滑动摩擦，上冲再滑下，逐差法求加速度</span><span class="eq">a = g(sinθ − μcosθ)</span><span class="tag">数值积分</span></a></li>
+    <li><a href="experiments/collision.html"><h2>碰撞与动量守恒</h2><span class="d">气垫导轨上的一维碰撞，三种碰撞类型对比动量与动能</span><span class="eq">m₁v₁ + m₂v₂ = m₁v₁′ + m₂v₂′</span><span class="tag">Rapier 物理引擎</span></a></li>
+    <li><a href="experiments/loop.html"><h2>竖直面内的圆周运动</h2><span class="d">过山车回环：临界高度 2.5R，以及在哪里脱离轨道</span><span class="eq">mg + N = mv²⁄R</span><span class="tag">RK4 积分</span></a></li>
+    <li><a href="experiments/conical.html"><h2>圆锥摆</h2><span class="d">向心力的来源，以及圆周运动在墙上的投影是简谐运动</span><span class="eq">T = 2π√(Lcosθ ⁄ g)</span><span class="tag">RK4 积分</span></a></li>
+    <li><a href="experiments/kepler.html"><h2>开普勒定律</h2><span class="d">椭圆轨道、等时扇形面积相等、周期定律</span><span class="eq">T² ⁄ a³ = 常量</span><span class="tag">Verlet 积分</span></a></li>
+    <li><a href="experiments/pendulum.html"><h2>单摆</h2><span class="d">小角度公式与精确周期的差距，机械能守恒</span><span class="eq">T = 2π√(L ⁄ g)</span><span class="tag">RK4 积分</span></a></li>
+    <li><a href="experiments/spring.html"><h2>弹簧振子</h2><span class="d">振子在匀速移动的纸带上画出正弦曲线，可加阻尼</span><span class="eq">T = 2π√(m ⁄ k)</span><span class="tag">RK4 积分</span></a></li>
+  </ol>
+  <h3 class="cat" id="c1">电磁学<span>5 个实验</span></h3>
+  <ol>
+    <li><a href="experiments/efield.html"><h2>点电荷的电场</h2><span class="d">三维电场线、等势面切片，场强叠加与电势梯度对照</span><span class="eq">E = Σ kqᵢ ⁄ rᵢ²</span><span class="tag">电场线追踪</span></a></li>
+    <li><a href="experiments/deflect.html"><h2>示波管</h2><span class="d">电子的加速与偏转，切到扫描模式在荧光屏上画出波形</span><span class="eq">y = U₂L² ⁄ (4dU₁)</span><span class="tag">数值积分</span></a></li>
+    <li><a href="experiments/lorentz.html"><h2>带电粒子在磁场中的运动</h2><span class="d">圆周、螺旋线、速度选择器与 E×B 漂移</span><span class="eq">r = mv ⁄ (qB)</span><span class="tag">Boris 积分</span></a></li>
+    <li><a href="experiments/induction.html"><h2>电磁感应：导体棒切割磁感线</h2><span class="d">感应电动势、安培力、收尾速度与能量守恒</span><span class="eq">ε = BLv</span><span class="tag">RK4 积分</span></a></li>
+    <li><a href="experiments/generator.html"><h2>交流发电机</h2><span class="d">线圈在磁场中转动产生正弦交流电，峰值与有效值</span><span class="eq">e = NBSω sin ωt</span><span class="tag">有限差分</span></a></li>
+  </ol>
+  <h3 class="cat" id="c2">光学<span>3 个实验</span></h3>
+  <ol>
+    <li><a href="experiments/refraction.html"><h2>光的折射与全反射</h2><span class="d">半圆玻璃砖与光学圆盘，记录数据测折射率，观察临界角</span><span class="eq">n₁sinθ₁ = n₂sinθ₂</span><span class="tag">矢量折射定律</span></a></li>
+    <li><a href="experiments/lens.html"><h2>透镜成像</h2><span class="d">凸透镜与凹透镜的三条特殊光线，移动光屏找到清晰的像</span><span class="eq">1⁄u + 1⁄v = 1⁄f</span><span class="tag">光线追迹</span></a></li>
+    <li><a href="experiments/doubleslit.html"><h2>杨氏双缝干涉</h2><span class="d">波面示意与按真实尺寸计算的干涉条纹</span><span class="eq">Δx = Lλ ⁄ d</span><span class="tag">精确光程差</span></a></li>
+  </ol>
+  <h3 class="cat" id="c3">热学<span>2 个实验</span></h3>
+  <ol>
+    <li><a href="experiments/gas.html"><h2>理想气体的分子动理论</h2><span class="d">分子撞击器壁产生压强，速率分布趋向麦克斯韦分布</span><span class="eq">pV = NkT</span><span class="tag">分子动力学</span></a></li>
+    <li><a href="experiments/brownian.html"><h2>布朗运动</h2><span class="d">分子撞击推动微粒无规则运动，验证能量均分</span><span class="eq">½MV² = 3⁄2 kT</span><span class="tag">分子动力学</span></a></li>
+  </ol>
+  <footer>基于 three.js r128 与 Rapier 0.12 构建。所有页面在宽度 860px 以下自动切换为上下布局。</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>单摆 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="单摆三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>单摆</h1>
+      <p>小角度下周期只取决于摆长和重力</p>
+      <span class="engine ok">RK4 积分 · 步长 1/600 s</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">仿真</span><span class="th">小角度近似</span>
+      <span class="k"><i class="v">t</i> / s</span><span id="h-t">0.000</span><span class="th">—</span>
+      <span class="k"><i class="v">θ</i> / °</span><span id="h-th">0.00</span><span class="th" id="h-tht">0.00</span>
+      <span class="k"><i class="v">v</i> / m·s⁻¹</span><span id="h-v">0.000</span><span class="th" id="h-vt">0.000</span>
+      <span class="k">拉力 / N</span><span id="h-T">0.000</span><span class="th">—</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--ghost)"></span>频闪位置（第一个周期，每 T₀⁄24）</div>
+      <div><span class="sw bar" style="background:var(--f-g)"></span>重力 <i class="v">mg</i></div>
+      <div><span class="sw bar" style="background:var(--f-n)"></span>绳的拉力 <i class="v">F</i><sub>T</sub></div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>速度 <i class="v">v</i></div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="L">摆长 <i class="v">L</i></label><input type="range" id="L" min="0.2" max="3" step="0.05" value="1"><output id="Lo"></output></div>
+      <div class="row"><label for="a">摆角 <i class="v">θ</i>₀</label><input type="range" id="a" min="2" max="80" step="1" value="10"><output id="ao"></output></div>
+      <div class="row"><label for="m">摆球质量</label><input type="range" id="m" min="0.05" max="2" step="0.05" value="0.2"><output id="mo"></output></div>
+      <div class="row"><label for="g">重力 <i class="v">g</i></label><input type="range" id="g" min="1" max="25" step="0.01" value="9.8"><output id="go"></output></div>
+      <div class="row"><label for="b">空气阻尼</label><input type="range" id="b" min="0" max="0.5" step="0.01" value="0"><output id="bo"></output></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1" selected>1×</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">释放</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tGhost" checked>频闪小球</label>
+        <label><input type="checkbox" id="tForce" checked>受力分析</label>
+        <label><input type="checkbox" id="tTrail" checked>运动轨迹</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">T</i>₀ = 2π√(<i class="v">L</i>⁄<i class="v">g</i>)</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">θ</i>(<i class="v">t</i>) ≈ <i class="v">θ</i>₀ cos(√(<i class="v">g</i>⁄<i class="v">L</i>) <i class="v">t</i>)</div><div class="sub">只在 sin<i class="v">θ</i> ≈ <i class="v">θ</i> 时成立，摆角越大偏差越明显</div></div>
+      <div class="f"><div class="eq"><i class="v">T</i> = <i class="v">T</i>₀ ⁄ AGM(1, cos(<i class="v">θ</i>₀⁄2))</div><div class="sub" id="f3">任意摆角下的精确周期（算术–几何平均）</div></div>
+      <table class="cmp">
+        <thead><tr><th>周期 / s</th><th>值</th><th>与仿真之差</th></tr></thead>
+        <tbody>
+          <tr><td>小角度公式 <i class="v">T</i>₀</td><td id="pT0">—</td><td id="eT0">—</td></tr>
+          <tr><td>精确公式 <i class="v">T</i></td><td id="pT">—</td><td id="eT">—</td></tr>
+          <tr><td>仿真测量</td><td id="pS">—</td><td></td></tr>
+        </tbody>
+      </table>
+      <p class="note">调整摆球质量不会改变周期；把摆角从 10° 调到 60°，能看到小角度公式的误差从约 0.2% 增长到 7% 左右。</p>
+    </section>
+    <section>
+      <h2><i class="v">θ</i>–<i class="v">t</i> 图像</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ghost)"></span>仿真</span><span><span class="sw bar" style="background:var(--theory)"></span>小角度近似（虚线）</span></div>
+    </section>
+    <section>
+      <h2>机械能</h2>
+      <div class="bars">
+        <span>动能</span><div class="track"><div class="fill" id="bK" style="background:var(--ghost)"></div></div><output id="vK"></output>
+        <span>重力势能</span><div class="track"><div class="fill" id="bP" style="background:var(--f-g)"></div></div><output id="vP"></output>
+        <span>总能量</span><div class="track"><div class="fill" id="bE" style="background:var(--ground)"></div></div><output id="vE"></output>
+      </div>
+      <p class="note">以最低点为势能零点。无阻尼时总能量保持不变；加入阻尼后可以看到它逐渐减少。</p>
+    </section>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const DT = 1/600, DEG = Math.PI/180;
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+
+const P = {L:1, a:10, m:0.2, g:9.8, b:0, speed:1};
+Lab.applyQuestion(P);
+const S = {phase:'idle', t:0, y:[0,0], turns:[], period:null, ghostsDone:false, nextGhost:0, chartT0:0, E0:0};
+
+const mats = {
+  bob: Lab.std('--ball', {roughness:0.35}), ghost: Lab.std('--ghost', {transparent:true, opacity:0.5}),
+  frame: Lab.std('--ink-2', {roughness:0.8}), floor: Lab.std('--wall', {roughness:1}),
+  string: Lab.lineMat('--ink'), trail: Lab.lineMat('--ghost', {transparent:true, opacity:0.7}),
+  ref: Lab.dashMat('--theory'), arc: Lab.lineMat('--ink-2')
+};
+const rig = new THREE.Group(); scene.add(rig);
+const ghosts = new THREE.Group(); scene.add(ghosts);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 10), mats.floor);
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+const fgrid = Lab.grid(8, 6, 0.5); fgrid.rotation.x = -Math.PI/2; fgrid.position.set(-4, 0.002, 3); scene.add(fgrid);
+
+let bobGeo = new THREE.SphereGeometry(0.1, 32, 20);
+const bob = new THREE.Mesh(bobGeo, mats.bob); bob.castShadow = true; scene.add(bob);
+const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), mats.string);
+scene.add(string);
+const TRAIL_N = 400;
+const trail = new THREE.Line(new THREE.BufferGeometry(), mats.trail);
+trail.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N*3), 3));
+trail.geometry.setDrawRange(0, 0); scene.add(trail);
+let trailCount = 0;
+const aG = Lab.arrow('--f-g'), aT = Lab.arrow('--f-n'), aV = Lab.arrow('--ink');
+scene.add(aG, aT, aV);
+
+let pivot = new THREE.Vector3();
+function rB(){ return 0.05 + 0.06*Math.cbrt(P.m); }
+
+function build(){
+  while (rig.children.length){ const o = rig.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const H = P.L + 0.5; pivot.set(0, H, 0);
+  const hw = Math.max(0.8, P.L*0.95 + 0.3);
+  const post = new THREE.BoxGeometry(0.06, H + 0.05, 0.06);
+  [-hw, hw].forEach(x => { const p = new THREE.Mesh(post, mats.frame); p.position.set(x, (H+0.05)/2, -0.4); p.castShadow = true; rig.add(p); });
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(2*hw + 0.06, 0.06, 0.06), mats.frame); bar.position.set(0, H + 0.05, -0.4); bar.castShadow = true; rig.add(bar);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.42), mats.frame); arm.position.set(0, H + 0.03, -0.2); rig.add(arm);
+  // 竖直参考线和量角器
+  const ref = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pivot.clone(), new THREE.Vector3(0, H - P.L - 0.2, 0)]), mats.ref);
+  ref.computeLineDistances(); rig.add(ref);
+  const rA = Math.min(0.35, P.L*0.4), pts = [];
+  for (let d=-90; d<=90; d+=2){ const r = d*DEG; pts.push(new THREE.Vector3(Math.sin(r)*rA, H - Math.cos(r)*rA, 0)); }
+  rig.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mats.arc));
+  const tk = [];
+  for (let d=-90; d<=90; d+=10){ const r = d*DEG, k = d % 30 === 0 ? 0.06 : 0.03;
+    tk.push(new THREE.Vector3(Math.sin(r)*rA, H - Math.cos(r)*rA, 0), new THREE.Vector3(Math.sin(r)*(rA+k), H - Math.cos(r)*(rA+k), 0)); }
+  rig.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(tk), mats.arc));
+  bobGeo.dispose(); bobGeo = new THREE.SphereGeometry(rB(), 32, 20); bob.geometry = bobGeo;
+  stage.overheadLight(0, 0, hw + 1, H);
+}
+function fit(){
+  const H = P.L + 0.5, d = Math.max(H, 2.2)*1.7 + 0.8;
+  stage.setHome(new THREE.Vector3(0, H*0.55, 0), new THREE.Vector3(d*0.35, H*0.6 + d*0.12, d));
+}
+
+function deriv(y){ return [y[1], -(P.g/P.L)*Math.sin(y[0]) - P.b*y[1]]; }
+function bobPos(th){ return new THREE.Vector3(pivot.x + P.L*Math.sin(th), pivot.y - P.L*Math.cos(th), 0); }
+function agm(a, b){ for (let i=0;i<30;i++){ const an=(a+b)/2, bn=Math.sqrt(a*b); a=an; b=bn; } return a; }
+const T0 = () => 2*Math.PI*Math.sqrt(P.L/P.g);
+const Tex = () => T0() / agm(1, Math.cos(P.a*DEG/2));
+
+const chart = Lab.Chart($('chart'), {xLabel:'t / s', symmetric:true, series:[{color:'--ghost'}, {color:'--theory', dash:true}]});
+
+function energies(){
+  const th = S.y[0], v = P.L*S.y[1];
+  const K = 0.5*P.m*v*v, U = P.m*P.g*P.L*(1 - Math.cos(th));
+  return {K, U, E:K+U};
+}
+
+function reset(refit){
+  S.phase = 'idle'; S.t = 0; S.y = [P.a*DEG, 0]; S.turns = [0]; S.period = null; S.ghostsDone = false; S.nextGhost = 0; S.chartT0 = 0;
+  while (ghosts.children.length) ghosts.children.pop();
+  trailCount = 0; trail.geometry.setDrawRange(0, 0);
+  build(); if (refit) fit();
+  S.E0 = energies().E;
+  chart.clear(); chart.setXMax(3*T0()); chart.setYRange(-P.a*1.15, P.a*1.15); pushChart(); chart.draw();
+  $('goBtn').textContent = '释放';
+  updateFormulas(); updateView();
+}
+function pushChart(){
+  const tc = S.t - S.chartT0;
+  if (tc > 3*T0()){ S.chartT0 = S.t; chart.clear(); }
+  const t2 = S.t - S.chartT0;
+  chart.push(0, t2, S.y[0]/DEG);
+  chart.push(1, t2, P.a*Math.cos(Math.sqrt(P.g/P.L)*S.t)*Math.exp(-P.b*S.t/2));
+}
+function step(){
+  const wPrev = S.y[1];
+  Lab.rk4(S.y, deriv, DT); S.t += DT;
+  // 转折点：角速度过零（线性插值）
+  if (wPrev !== 0 && wPrev * S.y[1] <= 0){
+    const tz = S.t - DT + DT * (wPrev / (wPrev - S.y[1]));
+    S.turns.push(tz);
+    if (S.turns.length >= 3 && S.period === null){ S.period = S.turns[2] - S.turns[0]; updateFormulas(); }
+  }
+  if (!S.ghostsDone && S.t + 1e-9 >= S.nextGhost){
+    const g = new THREE.Mesh(bobGeo, mats.ghost); g.position.copy(bobPos(S.y[0])); ghosts.add(g);
+    S.nextGhost += T0()/24;
+    if (S.period !== null) S.ghostsDone = true;
+  }
+  if (Math.round(S.t/DT) % 12 === 0) pushChart();
+}
+const drive = Lab.stepper(DT, step);
+
+function updateFormulas(){
+  const t0 = T0(), te = Tex();
+  $('f1').textContent = `L = ${P.L.toFixed(2)} m，g = ${P.g.toFixed(2)} m/s²，T₀ = ${t0.toFixed(4)} s`;
+  $('f3').textContent = `θ₀ = ${P.a}°，T = ${te.toFixed(4)} s，比 T₀ 长 ${((te/t0-1)*100).toFixed(3)}%`;
+  $('pT0').textContent = t0.toFixed(4); $('pT').textContent = te.toFixed(4);
+  if (S.period !== null){
+    $('pS').textContent = S.period.toFixed(4);
+    $('eT0').textContent = Lab.relErr(S.period, t0); $('eT').textContent = Lab.relErr(S.period, te);
+  } else { $('pS').textContent = '测量中…'; $('eT0').textContent = '—'; $('eT').textContent = '—'; }
+  if (P.b > 0) $('pS').title = '有阻尼时周期会略微变长';
+}
+function updateView(){
+  const th = S.y[0], w = S.y[1], p = bobPos(th);
+  bob.position.copy(p);
+  const sp = string.geometry.attributes.position.array; sp.set([pivot.x,pivot.y,pivot.z, p.x,p.y,p.z]);
+  string.geometry.attributes.position.needsUpdate = true; string.geometry.computeBoundingSphere();
+  if (S.phase === 'run'){
+    const arr = trail.geometry.attributes.position.array;
+    if (trailCount < TRAIL_N){ arr.set([p.x,p.y,p.z], trailCount*3); trailCount++; }
+    else { arr.copyWithin(0, 3); arr.set([p.x,p.y,p.z], (TRAIL_N-1)*3); }
+    trail.geometry.setDrawRange(0, trailCount); trail.geometry.attributes.position.needsUpdate = true; trail.geometry.computeBoundingSphere();
+  }
+  trail.visible = $('tTrail').checked;
+  ghosts.visible = $('tGhost').checked;
+  // 受力：mg 固定 0.6 m 长
+  const fOn = $('tForce').checked, k = 0.6/(P.m*P.g);
+  const Tn = P.m*(P.g*Math.cos(th) + P.L*w*w);
+  aG.show(p, new THREE.Vector3(0, -P.m*P.g, 0), k, fOn);
+  aT.show(p, pivot.clone().sub(p).normalize().multiplyScalar(Tn), k, fOn);
+  const v = new THREE.Vector3(Math.cos(th), Math.sin(th), 0).multiplyScalar(P.L*w);
+  aV.show(p, v, 0.3, fOn);
+  // HUD
+  const tht = P.a*Math.cos(Math.sqrt(P.g/P.L)*S.t);
+  const vt = -P.L*P.a*DEG*Math.sqrt(P.g/P.L)*Math.sin(Math.sqrt(P.g/P.L)*S.t);
+  $('h-t').textContent = S.t.toFixed(3);
+  $('h-th').textContent = Lab.f(th/DEG, 2); $('h-tht').textContent = Lab.f(tht, 2);
+  $('h-v').textContent = Lab.f(P.L*w); $('h-vt').textContent = Lab.f(vt);
+  $('h-T').textContent = Tn.toFixed(3);
+  // 能量
+  const e = energies(), top = Math.max(S.E0, e.E, 1e-9);
+  $('bK').style.width = (e.K/top*100)+'%'; $('bP').style.width = (e.U/top*100)+'%'; $('bE').style.width = (e.E/top*100)+'%';
+  $('vK').textContent = e.K.toFixed(4)+' J'; $('vP').textContent = e.U.toFixed(4)+' J'; $('vE').textContent = e.E.toFixed(4)+' J';
+}
+
+stage.onFrame(dt => {
+  if (S.phase === 'run'){ drive(dt, P.speed); updateView(); chart.draw(); }
+});
+
+Lab.range('L', v => v.toFixed(2)+' m', v => { P.L = v; reset(true); });
+Lab.range('a', v => v+'°', v => { P.a = v; reset(false); });
+Lab.range('m', v => v.toFixed(2)+' kg', v => { P.m = v; reset(false); });
+Lab.range('g', v => v.toFixed(2), v => { P.g = v; reset(false); });
+Lab.range('b', v => v.toFixed(2)+' s⁻¹', v => { P.b = v; reset(false); });
+P.L = +$('L').value; P.a = +$('a').value; P.m = +$('m').value; P.g = +$('g').value; P.b = +$('b').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('goBtn').addEventListener('click', () => {
+  if (S.phase === 'idle' || S.phase === 'pause'){ S.phase = 'run'; $('goBtn').textContent = '暂停'; }
+  else { S.phase = 'pause'; $('goBtn').textContent = '继续'; }
+});
+$('resetBtn').addEventListener('click', () => reset(false));
+$('fitBtn').addEventListener('click', () => stage.goHome());
+['tGhost','tForce','tTrail'].forEach(id => $(id).addEventListener('change', updateView));
+$('tShadow').addEventListener('change', e => { stage.renderer.shadowMap.enabled = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); });
+reset(true);
+})();
+</script>
+</body>
+</html>

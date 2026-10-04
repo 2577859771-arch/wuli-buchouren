@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>平抛运动 3D 原型</title>
+<link rel="stylesheet" href="../lib/lab.css">
+<style>
+.f.g{border-color:var(--ground)} .f.s{border-color:var(--side)} .f.b{border-color:var(--back)}
+.row{grid-template-columns:64px 1fr 64px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="平抛运动三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>平抛运动</h1>
+      <p>水平方向匀速，竖直方向自由落体</p>
+      <span class="engine" id="engine">物理引擎加载中…</span>
+    </div>
+    <div class="stage-tools">
+      <button class="chip" id="fitBtn" title="恢复默认视角">复位视角</button>
+    </div>
+    <div class="hud" id="hud">
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i> / s</span><span id="h-t">0.000</span><span class="th">—</span>
+      <span class="k"><i class="v">x</i> / m</span><span id="h-x">0.000</span><span class="th" id="h-xt">0.000</span>
+      <span class="k"><i class="v">y</i> / m</span><span id="h-y">0.000</span><span class="th" id="h-yt">0.000</span>
+      <span class="k"><i class="v">v<sub>y</sub></i> / m·s⁻¹</span><span id="h-vy">0.000</span><span class="th" id="h-vyt">0.000</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--ghost)"></span>频闪位置</div>
+      <div><span class="sw" style="background:var(--ground)"></span>地面投影：匀速直线</div>
+      <div><span class="sw" style="background:var(--side)"></span>侧墙投影：自由落体</div>
+      <div><span class="sw" style="background:var(--back)"></span>背墙投影：抛物线</div>
+    </div>
+  </div>
+
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="v0">初速度 <i class="v">v</i>₀</label><input type="range" id="v0" min="0.5" max="25" step="0.1" value="10"><output id="v0o">10.0 m/s</output></div>
+      <div class="row"><label for="h">高度 <i class="v">h</i></label><input type="range" id="h" min="1" max="50" step="0.1" value="19.6"><output id="ho">19.6 m</output></div>
+      <div class="row"><label for="g">重力 <i class="v">g</i></label><input type="range" id="g" min="1" max="25" step="0.01" value="9.8"><output id="go">9.80</output></div>
+      <div class="btns" role="group" aria-label="重力预设">
+        <button class="chip" data-g="9.8">地球 9.8</button>
+        <button class="chip" data-g="3.71">火星 3.71</button>
+        <button class="chip" data-g="1.62">月球 1.62</button>
+        <button class="chip" data-g="24.79">木星 24.79</button>
+      </div>
+      <div class="row"><label for="dt">频闪间隔</label>
+        <select id="dt"><option value="0.05">0.05 s</option><option value="0.1" selected>0.10 s</option><option value="0.2">0.20 s</option></select><span></span></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25" selected>0.25×</option><option value="0.1">0.1×</option></select><span></span></div>
+      <div class="btns">
+        <button class="primary" id="goBtn">发射</button>
+        <button id="resetBtn">重置</button>
+      </div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tGhost" checked>频闪小球</label>
+        <label><input type="checkbox" id="tGround" checked>地面投影</label>
+        <label><input type="checkbox" id="tSide" checked>侧墙投影</label>
+        <label><input type="checkbox" id="tBack" checked>背墙投影</label>
+        <label><input type="checkbox" id="tLinks" checked>投影连线</label>
+        <label><input type="checkbox" id="tCurve" checked>理论抛物线</label>
+        <label><input type="checkbox" id="tVec" checked>速度矢量</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>公式对照</h2>
+      <div class="f g"><div class="eq"><i class="v">x</i> = <i class="v">v</i>₀<i class="v">t</i></div><div class="sub" id="fx"></div></div>
+      <div class="f s"><div class="eq"><i class="v">y</i> = <i class="v">h</i> − ½<i class="v">g</i><i class="v">t</i>²，<i class="v">v<sub>y</sub></i> = −<i class="v">g</i><i class="v">t</i></div><p class="sub">地面为高度零点，向上为正：下落时 v<sub>y</sub> 为负。</p><div class="sub" id="fy"></div></div>
+      <div class="f b"><div class="eq"><i class="v">y</i> = <i class="v">h</i> − <i class="v">g</i><i class="v">x</i>² ⁄ (2<i class="v">v</i>₀²)</div><div class="sub" id="ftraj"></div></div>
+      <div class="f"><div class="eq"><i class="v">t</i>落 = √(2<i class="v">h</i>⁄<i class="v">g</i>)，<i class="v">x</i>落 = <i class="v">v</i>₀√(2<i class="v">h</i>⁄<i class="v">g</i>)</div><div class="sub" id="fland"></div></div>
+      <table class="cmp" aria-label="落地点理论与仿真对比">
+        <thead><tr><th>落地</th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>时间 / s</td><td id="lt-t">—</td><td id="ls-t">—</td><td id="le-t">—</td></tr>
+          <tr><td>水平距离 / m</td><td id="lt-x">—</td><td id="ls-x">—</td><td id="le-x">—</td></tr>
+          <tr><td>落地速度 / m·s⁻¹</td><td id="lt-v">—</td><td id="ls-v">—</td><td id="le-v">—</td></tr>
+          <tr><td>速度偏角 θ</td><td id="lt-a">—</td><td id="ls-a">—</td><td id="le-a">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>频闪记录</h2>
+      <div class="tablewrap">
+        <table class="cmp" id="strobeTable">
+          <thead><tr><th>#</th><th><i class="v">t</i></th><th><i class="v">x</i> 仿真</th><th><i class="v">x</i> 理论</th><th><i class="v">y</i> 仿真</th><th><i class="v">y</i> 理论</th><th>Δ<i class="v">x</i></th><th>下落比</th></tr></thead>
+          <tbody id="strobeBody"><tr><td colspan="8" class="empty">点击「发射」开始记录</td></tr></tbody>
+        </table>
+      </div>
+      <p class="note">Δ<i class="v">x</i> 恒定说明水平匀速；相邻间隔的下落量之比趋近 1 : 3 : 5 : 7…，正是初速度为零的匀加速运动特征。</p>
+    </section>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const DT = 1/240;          // 物理步长
+const R_BALL = 0.12;
+const BACK_Z = -2.2;       // 背墙位置
+
+/* ---------- 颜色 ---------- */
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function col(name){ return new THREE.Color(css(name) || '#888'); }
+
+/* ---------- 物理层：Rapier，失败时退回解析积分 ---------- */
+const Physics = {
+  kind:'none', R:null, world:null, body:null, fb:null, g:9.8,
+  async init(){
+    const R = await Lab.loadRapier();
+    if (R){ this.R = R; this.kind = 'rapier'; return true; }
+    this.kind = 'fallback'; return false;
+  },
+  reset(g, p, v){
+    this.g = g;
+    if (this.kind === 'rapier'){
+      const R = this.R;
+      if (this.world){ try{ this.world.free(); }catch(e){} }
+      const w = new R.World({x:0, y:-g, z:0});
+      w.timestep = DT;
+      w.createCollider(R.ColliderDesc.cuboid(200, 0.5, 200).setTranslation(0, -0.5, 0).setRestitution(0.45).setFriction(0.7));
+      const b = w.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(p.x, p.y, p.z).setLinvel(v.x, v.y, v.z).setCcdEnabled(true));
+      w.createCollider(R.ColliderDesc.ball(R_BALL).setRestitution(0.45).setFriction(0.7), b);
+      this.world = w; this.body = b;
+    } else {
+      this.fb = {p:{...p}, v:{...v}};
+    }
+  },
+  step(){
+    if (this.kind === 'rapier'){ this.world.step(); return; }
+    const s = this.fb, g = this.g;
+    // 恒力下的精确位移公式（速度 Verlet）
+    s.p.x += s.v.x*DT; s.p.z += s.v.z*DT;
+    s.p.y += s.v.y*DT - 0.5*g*DT*DT; s.v.y -= g*DT;
+    if (s.p.y < R_BALL){ s.p.y = R_BALL; if (s.v.y < 0) s.v.y = -s.v.y*0.45; s.v.x *= 0.9; }
+  },
+  pos(){ if (this.kind==='rapier'){ const t=this.body.translation(); return {x:t.x,y:t.y,z:t.z}; } return {...this.fb.p}; },
+  vel(){ if (this.kind==='rapier'){ const t=this.body.linvel(); return {x:t.x,y:t.y,z:t.z}; } return {...this.fb.v}; },
+  rot(){ if (this.kind==='rapier'){ const q=this.body.rotation(); return q; } return null; }
+};
+
+/* ---------- three.js 场景 ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 400);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI*0.495;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.75); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 0.65);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0008;
+scene.add(sun); scene.add(sun.target);
+
+const mats = {};
+function makeMats(){
+  mats.ball = new THREE.MeshStandardMaterial({color:col('--ball'), roughness:0.35, metalness:0.1});
+  mats.ghost = new THREE.MeshStandardMaterial({color:col('--ghost'), roughness:0.5, transparent:true, opacity:0.55});
+  mats.ground = new THREE.MeshBasicMaterial({color:col('--ground'), side:THREE.DoubleSide});
+  mats.side = new THREE.MeshBasicMaterial({color:col('--side'), side:THREE.DoubleSide});
+  mats.back = new THREE.MeshBasicMaterial({color:col('--back'), side:THREE.DoubleSide});
+  mats.linkG = new THREE.LineBasicMaterial({color:col('--ground'), transparent:true, opacity:0.45});
+  mats.linkS = new THREE.LineBasicMaterial({color:col('--side'), transparent:true, opacity:0.45});
+  mats.linkB = new THREE.LineBasicMaterial({color:col('--back'), transparent:true, opacity:0.45});
+  mats.theory = new THREE.LineDashedMaterial({color:col('--theory'), dashSize:0.12, gapSize:0.08});
+  mats.wall = new THREE.MeshStandardMaterial({color:col('--wall'), roughness:1, transparent:true, opacity:0.92, side:THREE.DoubleSide});
+  mats.floor = new THREE.MeshStandardMaterial({color:col('--wall'), roughness:1});
+  mats.grid = new THREE.LineBasicMaterial({color:col('--line'), transparent:true, opacity:0.9});
+  mats.platform = new THREE.MeshStandardMaterial({color:col('--ink-2'), roughness:0.8});
+}
+function applyTheme(){
+  scene.background = col('--scene');
+  const pairs = {ball:'--ball', ghost:'--ghost', ground:'--ground', side:'--side', back:'--back',
+    linkG:'--ground', linkS:'--side', linkB:'--back', theory:'--theory', wall:'--wall', floor:'--wall', grid:'--line', platform:'--ink-2'};
+  for (const k in pairs) mats[k].color = col(pairs[k]);
+  hemi.groundColor = col('--scene');
+  buildStatic();
+}
+makeMats();
+
+const geo = {
+  ball: new THREE.SphereGeometry(R_BALL, 32, 20),
+  dot: new THREE.CircleGeometry(R_BALL*0.75, 24),
+  bigDot: new THREE.CircleGeometry(R_BALL*0.95, 28)
+};
+
+const staticGroup = new THREE.Group(); scene.add(staticGroup);
+const strobeGroup = new THREE.Group(); scene.add(strobeGroup);
+const liveGroup = new THREE.Group(); scene.add(liveGroup);
+
+const ball = new THREE.Mesh(geo.ball, mats.ball); ball.castShadow = true; scene.add(ball);
+// 当前小球的实时投影点
+const liveG = new THREE.Mesh(geo.bigDot, mats.ground); liveG.rotation.x = -Math.PI/2;
+const liveS = new THREE.Mesh(geo.bigDot, mats.side); liveS.rotation.y = -Math.PI/2;
+const liveB = new THREE.Mesh(geo.bigDot, mats.back);
+liveGroup.add(liveG, liveS, liveB);
+const liveLinks = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xffffff, vertexColors:true, transparent:true, opacity:0.6}));
+liveLinks.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(18), 3));
+liveLinks.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(18), 3));
+liveGroup.add(liveLinks);
+
+const arrV = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1, 0x000000, 0.14, 0.08);
+const arrVx = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1, 0x000000, 0.12, 0.07);
+const arrVy = new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), new THREE.Vector3(), 1, 0x000000, 0.12, 0.07);
+scene.add(arrV, arrVx, arrVy);
+
+function makeLabel(text, color){
+  const c = document.createElement('canvas'); c.width = 640; c.height = 96;
+  const ctx = c.getContext('2d');
+  ctx.font = '500 44px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(text, 6, 48);
+  const tex = new THREE.CanvasTexture(c);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+  s.scale.set(3.2, 0.48, 1); s.center.set(0, 0.5);
+  return s;
+}
+function gridLines(w, h, step){
+  const pts = [];
+  for (let x=0; x<=w+1e-6; x+=step){ pts.push(x,0,0, x,h,0); }
+  for (let y=0; y<=h+1e-6; y+=step){ pts.push(0,y,0, w,y,0); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  return new THREE.LineSegments(g, mats.grid);
+}
+function disposeGroup(group){
+  while (group.children.length){
+    const o = group.children.pop();
+    o.traverse(n => {
+      if (n.geometry && !Object.values(geo).includes(n.geometry)) n.geometry.dispose();
+      if (n.material && n.material.map){ n.material.map.dispose(); n.material.dispose(); }
+    });
+  }
+}
+
+/* ---------- 状态 ---------- */
+const P = { v0:10, h:19.6, g:9.8, dt:0.1, speed:0.25 };
+Lab.applyQuestion(P);
+const incoming=new URLSearchParams(location.search);
+if(!incoming.has('scene'))for(const [key,min,max] of [['v0',.5,25],['h',1,50],['g',1,25]]){const value=incoming.get(key);if(value!==null&&Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max)P[key]=Number(value);}
+const S = { phase:'idle', steps:0, acc:0, strobes:[], landed:null, after:0, prevP:null, prevV:null };
+let sideX = 6, extentX = 6;
+
+function theory(t){ return { x:P.v0*t, y:P.h - 0.5*P.g*t*t, vy:-P.g*t }; }
+const tLand = () => Math.sqrt(2*P.h/P.g);
+
+function buildStatic(){
+  disposeGroup(staticGroup);
+  const xL = P.v0*tLand();
+  sideX = Math.max(xL + 1.4, 3);
+  extentX = sideX;
+  const x0 = -1.6, W = sideX - x0, H = P.h + 1.6;
+
+  // 地面
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W+6, 9), mats.floor);
+  floor.rotation.x = -Math.PI/2; floor.position.set(x0 + W/2, 0, 0.3); floor.receiveShadow = true;
+  staticGroup.add(floor);
+  // 地面网格：从背墙 (z=BACK_Z) 延伸到前方 4 m
+  const fg = gridLines(Math.floor(W*2)/2, 4, 0.5); fg.rotation.x = -Math.PI/2;
+  fg.position.set(x0, 0.002, BACK_Z + 4); staticGroup.add(fg);
+
+  // 背墙 (z = BACK_Z)
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), mats.wall);
+  back.position.set(x0 + W/2, H/2, BACK_Z); back.receiveShadow = true; staticGroup.add(back);
+  const bg = gridLines(Math.floor(W*2)/2, Math.floor(H*2)/2, 0.5); bg.position.set(x0, 0, BACK_Z+0.002); staticGroup.add(bg);
+
+  // 侧墙 (x = sideX)
+  const sideW = 4;
+  const side = new THREE.Mesh(new THREE.PlaneGeometry(sideW, H), mats.wall);
+  side.rotation.y = -Math.PI/2; side.position.set(sideX, H/2, BACK_Z + sideW/2); staticGroup.add(side);
+  const sg = gridLines(sideW, Math.floor(H*2)/2, 0.5); sg.rotation.y = -Math.PI/2; sg.position.set(sideX-0.002, 0, BACK_Z); staticGroup.add(sg);
+
+  // 平台
+  const pf = new THREE.Mesh(new THREE.BoxGeometry(1.4, P.h, 0.9), mats.platform);
+  pf.position.set(-0.7, P.h/2, 0); pf.castShadow = true; pf.receiveShadow = true; staticGroup.add(pf);
+
+  // 理论抛物线（在小球所在平面 z=0）
+  const pts = []; const N = 120, T = tLand();
+  for (let i=0;i<=N;i++){ const t=T*i/N; pts.push(new THREE.Vector3(P.v0*t, P.h - 0.5*P.g*t*t + R_BALL, 0)); }
+  const curve = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mats.theory);
+  curve.computeLineDistances(); curve.name = 'curve'; staticGroup.add(curve);
+  // 背墙上也画一条理论轨迹
+  const pts2 = pts.map(p => new THREE.Vector3(p.x, p.y, BACK_Z+0.004));
+  const curve2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), mats.theory);
+  curve2.computeLineDistances(); curve2.name = 'curve'; staticGroup.add(curve2);
+
+  // 落地点理论标记
+  const ring = new THREE.Mesh(new THREE.RingGeometry(R_BALL*1.3, R_BALL*1.6, 32), mats.back);
+  ring.rotation.x = -Math.PI/2; ring.position.set(xL, 0.004, 0); staticGroup.add(ring);
+
+  // 标签
+  const lb = makeLabel('背墙：x–y 轨迹', css('--back')); lb.position.set(x0+0.1, H-0.3, BACK_Z+0.05); staticGroup.add(lb);
+  const ls = makeLabel('侧墙：竖直分运动', css('--side')); ls.position.set(sideX-0.05, H-0.3, 0.6); staticGroup.add(ls);
+  const lg = makeLabel('地面：水平分运动', css('--ground')); lg.position.set(0.2, 0.25, 1.3); staticGroup.add(lg);
+
+  // 光源：正上方，阴影即正投影
+  sun.position.set(x0 + W/2, P.h + 30, 0); sun.target.position.set(x0 + W/2, 0, 0);
+  const sc = sun.shadow.camera; const half = Math.max(W, 6)/2 + 1;
+  sc.left = -half; sc.right = half; sc.top = 5; sc.bottom = -5; sc.near = 1; sc.far = P.h + 40; sc.updateProjectionMatrix();
+
+  applyToggles();
+}
+
+function fitCamera(){
+  const cx = (extentX - 1.6)/2, cy = P.h*0.45;
+  const span = Math.max(extentX + 1.6, P.h + 1.6);
+  const d = span * 1.25 + 2;
+  controls.target.set(cx, cy, BACK_Z/2);
+  camera.position.set(cx + d*0.28, cy + d*0.22, d*0.95);
+  controls.update();
+}
+
+/* ---------- 频闪 ---------- */
+function addStrobe(t, p, v){
+  const i = S.strobes.length;
+  const prev = S.strobes[i-1], first = S.strobes[1];
+  const rec = { t, x:p.x, y:p.y - R_BALL, vy:v.y, p:{...p} };
+  S.strobes.push(rec);
+
+  const grp = new THREE.Group();
+  const gh = new THREE.Mesh(geo.ball, mats.ghost); gh.position.set(p.x, p.y, p.z); gh.name='ghost'; grp.add(gh);
+  const dg = new THREE.Mesh(geo.dot, mats.ground); dg.rotation.x=-Math.PI/2; dg.position.set(p.x, 0.006, p.z); dg.name='pg'; grp.add(dg);
+  const ds = new THREE.Mesh(geo.dot, mats.side); ds.rotation.y=-Math.PI/2; ds.position.set(sideX-0.006, p.y, p.z); ds.name='ps'; grp.add(ds);
+  const db = new THREE.Mesh(geo.dot, mats.back); db.position.set(p.x, p.y, BACK_Z+0.006); db.name='pb'; grp.add(db);
+  const mk = (a,b,m) => { const g=new THREE.BufferGeometry().setFromPoints([a,b]); return new THREE.Line(g,m); };
+  const P3 = new THREE.Vector3(p.x,p.y,p.z);
+  const l1 = mk(P3, new THREE.Vector3(p.x,0,p.z), mats.linkG); l1.name='lg';
+  const l2 = mk(P3, new THREE.Vector3(sideX,p.y,p.z), mats.linkS); l2.name='ls';
+  const l3 = mk(P3, new THREE.Vector3(p.x,p.y,BACK_Z), mats.linkB); l3.name='lb';
+  grp.add(l1,l2,l3);
+  strobeGroup.add(grp);
+  applyToggles();
+
+  // 表格行
+  const tb = $('strobeBody');
+  if (i === 0) tb.innerHTML = '';
+  const th = theory(t);
+  const dx = prev ? (rec.x - prev.x).toFixed(3) : '—';
+  let ratio = '—';
+  if (prev && first){
+    const d1 = S.strobes[0].y - first.y, dn = prev.y - rec.y;
+    ratio = d1 > 1e-9 ? (dn/d1).toFixed(2) : '—';
+  } else if (i === 1) ratio = '1.00';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${i}</td><td>${t.toFixed(2)}</td><td>${rec.x.toFixed(3)}</td><td>${th.x.toFixed(3)}</td><td>${rec.y.toFixed(3)}</td><td>${th.y.toFixed(3)}</td><td>${dx}</td><td>${ratio}</td>`;
+  tb.appendChild(tr);
+  tr.scrollIntoView({block:'nearest'});
+}
+
+/* ---------- 重置与运行 ---------- */
+function resetSim(refit){
+  S.phase = 'idle'; S.steps = 0; S.acc = 0; S.strobes = []; S.landed = null; S.after = 0;
+  disposeGroup(strobeGroup);
+  $('strobeBody').innerHTML = '<tr><td colspan="8" class="empty">点击「发射」开始记录</td></tr>';
+  const p0 = {x:0, y:P.h + R_BALL, z:0}, v0 = {x:P.v0, y:0, z:0};
+  if (Physics.kind !== 'none') Physics.reset(P.g, p0, v0);
+  ball.position.set(p0.x, p0.y, p0.z); ball.quaternion.identity();
+  S.prevP = p0; S.prevV = v0;
+  buildStatic();
+  if (refit) fitCamera();
+  updateFormulas(); updateLandingTable(); updateLive(p0, v0);
+  $('goBtn').textContent = '发射';
+}
+
+function stepSim(){
+  const pBefore = Physics.pos(), vBefore = Physics.vel();
+  Physics.step(); S.steps++;
+  const p = Physics.pos(), v = Physics.vel();
+  const t = S.steps*DT;
+  if (!S.landed){
+    if (p.y - R_BALL <= 1e-4 || (vBefore.y < 0 && v.y >= 0 && p.y < R_BALL + 0.05)){
+      // 用上一步的状态解析求出精确触地时刻（触地瞬间引擎已介入碰撞）
+      const y0 = pBefore.y - R_BALL, vy = vBefore.y, g = P.g;
+      const disc = vy*vy + 2*g*y0;
+      const tau = disc >= 0 ? (vy + Math.sqrt(disc))/g : 0;
+      const tl = (S.steps-1)*DT + Math.max(0, Math.min(tau, DT*1.5));
+      const vyl = vy - g*tau;
+      S.landed = { t:tl, x:pBefore.x + vBefore.x*tau, vx:vBefore.x, vy:vyl };
+      updateLandingTable();
+    } else {
+      const k = Math.round(P.dt/DT);
+      if (S.steps % k === 0) addStrobe(t, p, v);
+    }
+  } else {
+    S.after += DT;
+    if (S.after > 1.6){ S.phase = 'done'; $('goBtn').textContent = '再次发射'; }
+  }
+  S.prevP = p; S.prevV = v;
+}
+
+function startOrToggle(){
+  if (Physics.kind === 'none') return;
+  if (S.phase === 'done'){ resetSim(false); }
+  if (S.phase === 'idle'){
+    S.phase = 'run';
+    addStrobe(0, Physics.pos(), Physics.vel());
+    $('goBtn').textContent = '暂停';
+  } else if (S.phase === 'run'){ S.phase = 'pause'; $('goBtn').textContent = '继续'; }
+  else if (S.phase === 'pause'){ S.phase = 'run'; $('goBtn').textContent = '暂停'; }
+}
+
+/* ---------- 面板 ---------- */
+const f3 = n => (Math.abs(n) < 5e-4 ? 0 : n).toFixed(3);
+function updateFormulas(){
+  const T = tLand(), XL = P.v0*T;
+  $('fx').textContent = `v₀ = ${P.v0.toFixed(1)} m/s，每 ${P.dt.toFixed(2)} s 前进 ${(P.v0*P.dt).toFixed(3)} m`;
+  $('fy').textContent = `h = ${P.h.toFixed(1)} m，g = ${P.g.toFixed(2)} m/s²，第一个间隔下落 ${(0.5*P.g*P.dt*P.dt).toFixed(4)} m`;
+  $('ftraj').textContent = `y = ${P.h.toFixed(2)} − ${(P.g/(2*P.v0*P.v0)).toFixed(4)}·x²（与时间无关的轨迹方程）`;
+  $('fland').textContent = `t落 = ${T.toFixed(4)} s，x落 = ${XL.toFixed(4)} m`;
+}
+function relErr(a, b){ if (Math.abs(a) < 1e-9) return '—'; const e = Math.abs(b-a)/Math.abs(a)*100; return e < 0.001 ? '<0.001%' : e.toFixed(3)+'%'; }
+function updateLandingTable(){
+  const T = tLand(), XL = P.v0*T, VYL = P.g*T, VL = Math.hypot(P.v0, VYL), AL = Math.atan2(VYL, P.v0)*180/Math.PI;
+  $('lt-t').textContent = T.toFixed(4); $('lt-x').textContent = XL.toFixed(4);
+  $('lt-v').textContent = VL.toFixed(4); $('lt-a').textContent = AL.toFixed(2)+'°';
+  const L = S.landed;
+  if (!L){ ['ls-t','ls-x','ls-v','ls-a','le-t','le-x','le-v','le-a'].forEach(id => $(id).textContent='—'); return; }
+  const v = Math.hypot(L.vx, L.vy), a = Math.atan2(-L.vy, L.vx)*180/Math.PI;
+  $('ls-t').textContent = L.t.toFixed(4); $('ls-x').textContent = L.x.toFixed(4);
+  $('ls-v').textContent = v.toFixed(4); $('ls-a').textContent = a.toFixed(2)+'°';
+  $('le-t').textContent = relErr(T, L.t); $('le-x').textContent = relErr(XL, L.x);
+  $('le-v').textContent = relErr(VL, v); $('le-a').textContent = relErr(AL, a);
+}
+function updateLive(p, v){
+  const t = S.landed ? S.landed.t : S.steps*DT;
+  const tt = Math.min(t, tLand());
+  const th = theory(tt);
+  $('h-t').textContent = (S.landed ? S.landed.t : t).toFixed(3);
+  $('h-x').textContent = f3(S.landed ? S.landed.x : p.x);
+  $('h-y').textContent = f3(S.landed ? 0 : p.y - R_BALL);
+  $('h-vy').textContent = f3(S.landed ? S.landed.vy : v.y);
+  $('h-xt').textContent = f3(th.x); $('h-yt').textContent = f3(Math.max(0, th.y)); $('h-vyt').textContent = f3(th.vy);
+
+  // 实时投影
+  liveG.position.set(p.x, 0.008, p.z);
+  liveS.position.set(sideX-0.008, p.y, p.z);
+  liveB.position.set(p.x, p.y, BACK_Z+0.008);
+  const pos = liveLinks.geometry.attributes.position.array, cl = liveLinks.geometry.attributes.color.array;
+  const seg = [[p.x,0,p.z,'--ground'],[sideX,p.y,p.z,'--side'],[p.x,p.y,BACK_Z,'--back']];
+  seg.forEach((s,i) => {
+    pos.set([p.x,p.y,p.z, s[0],s[1],s[2]], i*6);
+    const c = col(s[3]); cl.set([c.r,c.g,c.b,c.r,c.g,c.b], i*6);
+  });
+  liveLinks.geometry.attributes.position.needsUpdate = true; liveLinks.geometry.attributes.color.needsUpdate = true;
+  liveLinks.geometry.computeBoundingSphere();
+
+  // 速度矢量（长度 = 速度 × 0.25 s）
+  const k = 0.25, o = new THREE.Vector3(p.x, p.y, p.z);
+  const vv = new THREE.Vector3(v.x, v.y, 0), sp = vv.length();
+  const showVec = $('tVec').checked && !S.landed;
+  arrV.visible = showVec && sp > 1e-3; arrVx.visible = showVec && Math.abs(v.x) > 1e-3; arrVy.visible = showVec && Math.abs(v.y) > 1e-3;
+  if (arrV.visible){ arrV.position.copy(o); arrV.setDirection(vv.clone().normalize()); arrV.setLength(sp*k + R_BALL, 0.14, 0.08); }
+  if (arrVx.visible){ arrVx.position.copy(o); arrVx.setDirection(new THREE.Vector3(Math.sign(v.x),0,0)); arrVx.setLength(Math.abs(v.x)*k + R_BALL, 0.12, 0.07); }
+  if (arrVy.visible){ arrVy.position.copy(o); arrVy.setDirection(new THREE.Vector3(0,Math.sign(v.y),0)); arrVy.setLength(Math.abs(v.y)*k + R_BALL, 0.12, 0.07); }
+  arrV.setColor(col('--ink')); arrVx.setColor(col('--ground')); arrVy.setColor(col('--side'));
+}
+
+function applyToggles(){
+  const on = id => $(id).checked;
+  strobeGroup.children.forEach(grp => grp.children.forEach(o => {
+    const m = {ghost:'tGhost', pg:'tGround', ps:'tSide', pb:'tBack'}[o.name];
+    if (m) o.visible = on(m);
+    const lm = {lg:'tGround', ls:'tSide', lb:'tBack'}[o.name];
+    if (lm) o.visible = on(lm) && on('tLinks');
+  }));
+  liveG.visible = on('tGround'); liveS.visible = on('tSide'); liveB.visible = on('tBack');
+  liveLinks.visible = on('tLinks');
+  staticGroup.children.forEach(o => { if (o.name === 'curve') o.visible = on('tCurve'); });
+  renderer.shadowMap.enabled = on('tShadow'); sun.castShadow = on('tShadow');
+  scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+}
+
+/* ---------- 事件 ---------- */
+function bindSlider(id, key, fmt){
+  const el = $(id), out = $(id+'o');
+  el.value=P[key];
+  const upd = () => { P[key] = parseFloat(el.value); out.textContent = fmt(P[key]); };
+  el.addEventListener('input', () => { upd(); resetSim(true); });
+  upd();
+}
+bindSlider('v0', 'v0', v => v.toFixed(1)+' m/s');
+bindSlider('h', 'h', v => v.toFixed(1)+' m');
+bindSlider('g', 'g', v => v.toFixed(2));
+document.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => {
+  $('g').value = b.dataset.g; $('g').dispatchEvent(new Event('input'));
+}));
+$('dt').addEventListener('change', e => { P.dt = parseFloat(e.target.value); resetSim(false); });
+$('speed').addEventListener('change', e => { P.speed = parseFloat(e.target.value); });
+P.speed = parseFloat($('speed').value);
+$('goBtn').addEventListener('click', startOrToggle);
+$('resetBtn').addEventListener('click', () => resetSim(false));
+$('fitBtn').addEventListener('click', fitCamera);
+['tGhost','tGround','tSide','tBack','tLinks','tCurve','tShadow'].forEach(id => $(id).addEventListener('change', applyToggles));
+$('tVec').addEventListener('change', () => updateLive(Physics.kind==='none'?ball.position:Physics.pos(), Physics.kind==='none'?{x:P.v0,y:0,z:0}:Physics.vel()));
+window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body){ e.preventDefault(); startOrToggle(); } });
+Lab.onTheme(applyTheme);
+
+function resize(){
+  const r = canvas.parentElement.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas.parentElement);
+
+/* ---------- 主循环 ---------- */
+let last = performance.now();
+function loop(now){
+  const real = Math.min(0.1, (now - last)/1000); last = now;
+  if (S.phase === 'run'){
+    S.acc += real * P.speed;
+    let guard = 0;
+    while (S.acc >= DT && S.phase === 'run' && guard++ < 2000){ stepSim(); S.acc -= DT; }
+    const p = Physics.pos(), v = Physics.vel();
+    ball.position.set(p.x, p.y, p.z);
+    const q = Physics.rot(); if (q) ball.quaternion.set(q.x, q.y, q.z, q.w);
+    updateLive(p, v);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 启动 ---------- */
+applyTheme();
+resize();
+resetSim(true);
+requestAnimationFrame(loop);
+Physics.init().then(ok => {
+  const el = $('engine');
+  if (ok){ el.textContent = 'Rapier 0.12 · 步长 1/240 s'; el.className = 'engine ok'; }
+  else { el.textContent = 'Rapier 未能加载，已改用内置积分器'; el.className = 'engine fb'; }
+  resetSim(false);
+});
+})();
+</script>
+</body>
+</html>

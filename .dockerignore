@@ -1,0 +1,8 @@
+node_modules
+dist
+data
+.git
+.openai
+.env
+.env.*
+*.log

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>物理不愁人 · 看懂过程，理解公式</title>
+  <meta name="description" content="高中与大学物理知识点、公式手册和逐步推导，配有平抛、振动、电场、高斯定律、电容、RC充电和粒子磁场运动交互演示。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="物理不愁人 · 看懂过程，理解公式">
+  <meta property="og:description" content="把“我会了”，变成真会了。42 个物理专题、126 个细分知识条目与 18 个三维实验，免费体验交互实验，上传题目后核对数据、理解解答。">
+  <meta property="og:image" content="cover.jpg">
+  <meta property="og:site_name" content="物理不愁人">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#090e14">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="brand.svg">
+  <link rel="stylesheet" href="vendor/katex.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lab3d.css"><link rel="stylesheet" href="cinema.css"><link rel="stylesheet" href="math-foundations.css"><script src="app.js" type="module"></script><script src="community.js" type="module"></script><script src="enhance.js" type="module"></script><script src="lab3d-entry.js" type="module"></script><script src="cinema.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#home-view">跳到主要内容</a>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="物理不愁人首页"><span class="brandmark" aria-hidden="true">φ</span><span>物理不愁人<small>PHYSICS, MADE CLEAR.</small></span></a>
+    <nav aria-label="主导航"><button class="nav-btn active" data-view="home">首页</button><button class="nav-btn" data-view="lab">学习实验室</button><button class="nav-btn" data-view="catalog">知识目录</button><button class="nav-btn" data-view="formulas">公式手册</button><button class="nav-btn" data-view="math">数学工具</button><button class="nav-btn" data-view="sources">资料来源</button></nav>
+    <button id="account-button" class="account-button">邮箱登录</button>
+  </header>
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="课程导航">
+      <p class="eyebrow">学习阶段</p>
+      <div class="level-switch" role="group" aria-label="学习阶段"><button data-level="high" aria-pressed="true" class="selected">高中物理</button><button data-level="uni" aria-pressed="false">大学物理</button></div>
+      <button id="math-sidebar-entry" class="math-sidebar-entry" data-view="math" hidden>∫ 大学数学工具 ↗</button>
+      <div class="sidebar-label"><span>探索知识点</span><span id="topic-count">42 个</span></div>
+      <div id="topic-list"></div>
+      <div class="sidebar-note"><span class="note-symbol" aria-hidden="true">∴</span><strong>把公式放回过程里</strong><p>改变条件，观察变化，再理解每一步为什么成立。</p></div>
+      <div class="side-footer">交互演示 · 逐步推导</div>
+    </aside>
+    <main id="lab-view" hidden>
+      <div class="page-heading"><div><div class="breadcrumb"><span id="level-breadcrumb">高中物理</span><span>/</span><span id="category-breadcrumb">力学</span></div><h1 id="lesson-title">平抛运动</h1><p id="lesson-description">水平方向的匀速运动，与竖直方向的自由落体，同时发生。</p></div><div class="lesson-tag">交互实验 <span>01</span></div></div>
+      <div class="workspace">
+        <section class="experiment" aria-labelledby="experiment-title">
+          <div class="panel-top"><h2 id="experiment-title">过程演示</h2><div class="scene-options"><label id="trail-option"><input type="checkbox" id="show-trail" checked><span id="trail-label">轨迹</span></label><label><input type="checkbox" id="show-vectors" checked><span id="vector-label">速度</span></label></div></div>
+          <div class="scene-wrap"><div class="scene-meta"><span id="scene-name">理想模型 · 忽略空气阻力</span><span class="time-readout" id="time-display">t = <b id="scene-time">0.00</b> <span id="time-unit">s</span></span></div><svg id="scene" viewBox="0 0 740 380" role="img" aria-label="物体平抛运动示意图"></svg><div class="scene-legend" id="scene-legend"><span><i class="mint"></i>运动轨迹</span><span><i class="blue"></i>水平速度</span><span><i class="orange"></i>竖直速度</span></div></div>
+          <div class="playback" id="playback-controls"><button id="play" class="play-button" aria-label="开始演示"><span aria-hidden="true">▶</span><span id="play-label">开始演示</span></button><button id="reset" class="reset-button" aria-label="重置演示">↺</button><label class="timeline"><span class="sr-only">演示时间</span><input id="timeline" type="range" min="0" max="1000" value="0"><span id="duration">2.26 s</span></label><label class="speed-label"><span class="sr-only">播放速度</span><select id="speed"><option value="0.25">0.25 ×</option><option value="0.5">0.5 ×</option><option value="1" selected>1 ×</option><option value="2">2 ×</option></select></label></div>
+          <div id="static-hint" class="static-hint" hidden></div><div class="parameters"><div class="subheading"><h3>改变条件，看看会发生什么</h3><span id="fixed-condition">g = 9.8 m/s²</span></div><div id="parameter-controls" class="parameter-grid"></div></div>
+        </section>
+        <aside class="explanation" aria-label="物理过程和公式推导">
+          <div class="panel-tabs" role="tablist" aria-label="讲解类型"><button id="tab-process" role="tab" aria-selected="true" aria-controls="explain-content" class="selected">过程解析</button><button id="tab-derive" role="tab" aria-selected="false" aria-controls="explain-content">推导与依据</button></div>
+          <div id="explain-content" role="tabpanel" aria-labelledby="tab-process"></div>
+        </aside>
+      </div>
+      <section class="readings" aria-label="实时物理量"><div class="reading-label"><span class="tiny-symbol" aria-hidden="true">⌁</span><strong>此刻的物理量</strong><span>随演示实时变化</span></div><div id="reading-values" class="reading-values"></div></section>
+      <section id="theory-content" hidden></section><section id="demo-details"></section><div class="bottom-note"><span>先观察，再推导，最后回到问题。</span><span>当前开放 2 个演示 · 更多章节待补充</span></div>
+    </main>
+    <main id="catalog-view" hidden>
+      <div class="page-heading"><div><div class="breadcrumb">知识目录</div><h1 id="catalog-title">高中物理知识目录</h1><p id="catalog-summary">选择学习阶段，找到你想弄明白的过程。</p></div><span class="lesson-tag">内容框架</span></div>
+      <div id="catalog-grid" class="catalog-grid"></div>
+    </main>
+    <main id="formulas-view" hidden><div class="page-heading"><div><div class="breadcrumb">公式手册</div><h1 id="formulas-title">高中物理公式手册</h1><p>先看适用条件，再选公式。每个专题配有示意图和一道典例，先自己做，再展开解答。</p></div></div><div id="formula-groups"></div></main>
+    <main id="sources-view" hidden><div class="page-heading"><div><div class="breadcrumb">资料来源</div><h1>从资料到理解</h1><p>课程范围参考、教材章节对应与公式核对资料。</p></div></div><div id="sources-content"></div></main>
+    <main id="math-view" hidden><div id="math-content"></div></main>
+    <main id="home-view" tabindex="-1">
+      <section class="cinema-hero" aria-labelledby="hero-title">
+        <div class="hero-copy"><p class="hero-eyebrow"><span></span> PHYSICS, MADE CLEAR.</p><h1 id="hero-title">让物理，<br>在眼前<span>发生。</span></h1><p class="hero-description">不止背下公式。看见运动，改变条件。<br>让每一个“为什么”，都有来由。</p><div class="hero-actions"><button class="cinema-primary" data-scroll="first-experiment">先体验一下 <span>↗</span></button><button class="cinema-secondary" data-scroll="ask-section">上传我的题目 <span>＋</span></button></div><p class="hero-reassurance"><span>✓</span> 实验与课程无需登录 <i></i> 高中 · 大学物理</p></div>
+        <div class="hero-art" aria-label="光影、轨迹与球体组成的物理艺术主视觉，不作为定量实验图">
+          <div class="orbital-halo"></div><div class="orbital-grid"></div><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div><div class="hero-orbit orbit-three"></div><div class="hero-sphere"><span></span></div><div class="satellite satellite-one"></div><div class="satellite satellite-two"></div><div class="art-cross cross-one">＋</div><div class="art-cross cross-two">＋</div><span class="art-coordinate">OBSERVE / CHANGE / UNDERSTAND</span><div class="art-label"><span class="live-dot"></span> 看见过程，而不只是答案。</div><div class="hero-caption"><span>01 / PHYSICS IN MOTION</span><span>轨迹 · 光影 · 直觉</span></div>
+        </div>
+        <div class="hero-bottom"><span>把“我会了”，变成真会了。</span><button data-scroll="first-experiment" aria-label="向下探索实验">向下探索 <span>↓</span></button></div>
+      </section>
+      <section id="promo-section" class="cinema-section promo-section" aria-labelledby="promo-title">
+        <div class="section-heading"><div><p class="section-kicker">THE FILM COLLECTION / 影像放映室</p><h2 id="promo-title">让好奇心，有一个大银幕。</h2></div><p>选一部短片，换一个角度看物理。</p></div>
+        <div class="film-feature">
+          <div class="promo-screen"><video id="home-promo" controls playsinline preload="none" poster="/media/physics-promo-v2-poster.jpg" aria-label="物理不愁人 · 宣传片 V2"><source src="/media/physics-promo-v2-stream.mp4" type="video/mp4">可<a href="/media/physics-promo-v2-stream.mp4">直接打开视频</a>观看。</video></div>
+          <div class="film-details"><p id="film-kicker" class="section-kicker">NOW SHOWING / 正在放映</p><p id="film-counter" class="film-counter">01 / 04</p><h3 id="film-title">物理不愁人 · 宣传片 V2</h3><p id="film-description">不只看见公式，也看见它动起来。用一段短片，开启你的物理探索。</p><p id="film-meta" class="film-meta">约 39 秒 · 横屏短片</p><button id="film-play" class="cinema-primary" type="button">播放这部短片 ▶</button><div class="film-switch"><button id="film-prev" type="button" class="cinema-secondary" aria-label="上一部视频">←</button><button id="film-next" type="button" class="cinema-secondary" aria-label="下一部视频">→</button><span>自由切换 · 不连续自动播放</span></div><label id="film-quality-label" class="film-quality">播放画质<select id="film-quality" aria-label="播放画质"><option value="smooth">流畅版（推荐）</option><option value="original">原画版（更耗流量）</option></select></label><p id="promo-status" class="promo-caption" role="status">点击播放才加载视频；支持声音、拖动进度和全屏。</p><a id="film-open" class="text-link" href="/media/physics-promo-v2-stream.mp4" target="_blank" rel="noopener">在独立播放器中打开 ↗</a></div>
+        </div>
+        <div class="film-gallery-heading"><h3>选择你想看的</h3><p id="film-count">4 部短片 · 点击封面自由切换</p></div>
+        <div id="film-gallery" class="film-gallery" role="group" aria-label="首页视频片单"></div>
+        <noscript><p>启用 JavaScript 可切换片单。也可直接观看：<a href="/media/physics-promo-v2-stream.mp4">宣传片 V2</a> · <a href="/media/physics-lab-film-stream.mp4">物理实验 3D</a> · <a href="/media/physics-story-stream.mp4">探索短片</a> · <a href="/media/campus-film-stream.mp4">校园科幻宣传片</a>。</p></noscript>
+      </section>
+      <section class="cinema-stats" aria-label="课程与实验规模"><div><strong>42<span>个</span></strong><p>高中与大学物理专题</p></div><div><strong>126<span>个</span></strong><p>从概念到推导的小节</p></div><div><strong>18<span>个</span></strong><p>力学、电磁学、光学与热学实验</p></div><div><strong>0<span>门槛</span></strong><p>免登录体验课程与实验</p></div></section>
+      <section id="first-experiment" class="cinema-section reveal" aria-labelledby="first-title">
+        <div class="section-heading"><div><p class="section-kicker">01 / TRY IT YOURSELF</p><h2 id="first-title">试一次，你就明白了。</h2></div><p>一道题，两个小球。<br>先猜，再亲手验证。</p></div>
+        <div class="discovery-card"><div class="discovery-stage"><div class="discovery-top"><span><i class="live-dot"></i> 平抛运动 · 双球对照</span><span id="demo-time">t = 0.00 s</span></div><svg id="compare-scene" viewBox="0 0 720 340" role="img" aria-label="相同高度、不同水平初速度的两个小球，同时发射的平抛实验"></svg><div class="compare-legend"><span><i></i> A 球 · 10 m/s</span><span><i></i> B 球 · <b id="compare-speed">20</b> m/s</span></div><div class="compare-controls"><button id="compare-play" class="cinema-primary">▶ 同时发射</button><button id="compare-reset" class="subtle-button">重置</button><label>B 球水平速度<input id="compare-slider" type="range" min="2" max="25" step="1" value="20" aria-label="B 球水平初速度"><output id="compare-output">20 m/s</output></label></div></div><div class="discovery-explanation"><span class="small-pill">不登录 · 不消耗 AI 额度</span><h3>飞得更快，<br>就一定先落地吗？</h3><p>两个小球从 19.6 m 高处同时水平抛出。你觉得谁先落地？</p><div class="prediction-options" role="group" aria-label="选择你的预测"><button data-prediction="fast">快球先落地</button><button data-prediction="same">同时落地</button><button data-prediction="slow">慢球先落地</button></div><p id="prediction-feedback" class="prediction-feedback" role="status">点一下“同时发射”，让实验告诉你。</p><div class="comparison-results"><div><span>两球落地时间</span><strong>2.00 <small>s</small></strong></div><div><span>B 球水平射程</span><strong id="compare-range">40.00 <small>m</small></strong></div></div><p class="model-condition">理想模型：忽略空气阻力，g = 9.8 m/s²，初始竖直速度为零。</p><button id="demo-to-lesson" class="text-link">看完整推导与实验 ↗</button></div></div>
+      </section>
+      <section class="cinema-section reveal" aria-labelledby="explore-title"><div class="section-heading"><div><p class="section-kicker">02 / A WORLD TO EXPLORE</p><h2 id="explore-title">抽象的世界，具体地看。</h2></div><button data-view="catalog" class="text-link">探索全部知识点 ↗</button></div><div class="explore-grid">
+        <button class="explore-card card-motion" data-topic="projectile"><span class="card-index">01 / MOTION</span><svg viewBox="0 0 360 210" aria-hidden="true"><path d="M35 42Q190 45 300 176"/><path d="M35 42Q125 45 205 176"/><circle cx="178" cy="85" r="12"/><circle cx="116" cy="91" r="7"/><path class="card-floor" d="M25 178H335"/></svg><div><span>力学与运动</span><h3>看见一条轨迹的来由</h3><p>平抛 · 受力 · 动量与能量</p></div><span class="card-arrow">↗</span></button>
+        <button class="explore-card card-wave" data-topic="wave"><span class="card-index">02 / WAVES</span><svg viewBox="0 0 360 210" aria-hidden="true"><path d="M20 110Q60 15 100 110T180 110T260 110T340 110"/><path d="M20 135Q60 40 100 135T180 135T260 135T340 135"/><path d="M20 85Q60 -10 100 85T180 85T260 85T340 85"/></svg><div><span>波动与光学</span><h3>让看不见的传播显形</h3><p>机械波 · 干涉 · 透镜成像</p></div><span class="card-arrow">↗</span></button>
+        <button class="explore-card card-field" data-topic="field"><span class="card-index">03 / FIELDS</span><svg viewBox="0 0 360 210" aria-hidden="true"><circle cx="180" cy="105" r="25"/><circle cx="180" cy="105" r="50"/><circle cx="180" cy="105" r="76"/><circle cx="180" cy="105" r="98"/><path d="M60 105H300M180 10V200M105 30L255 180M105 180L255 30"/></svg><div><span>电场与电路</span><h3>从一颗电荷，理解场</h3><p>场强 · 电势 · RC 充电</p></div><span class="card-arrow">↗</span></button>
+      </div></section>
+      <section id="ask-section" class="cinema-section reveal" aria-labelledby="ask-title"><div class="section-heading"><div><p class="section-kicker">03 / YOUR QUESTION, YOUR DISCOVERY</p><h2 id="ask-title">卡住的那一步，一起弄懂。</h2></div><p id="qa-mode-note">上传或输入题目，核对数据，再看演示与推导。</p></div><section class="qa-card"><div class="qa-toolbar"><span id="ai-status">正在检查服务…</span><button id="clear-conversation">新对话 ↗</button></div><form id="question-form"><label for="question">你的物理题目</label><textarea id="question" maxlength="3000" rows="4" placeholder="贴上题目，或者上传清晰照片。也可以直接问：为什么水平初速度不影响平抛的落地时间？"></textarea><div class="upload-row"><label class="upload-button" for="question-image" role="button" tabindex="0" aria-label="上传题目图片">＋ 上传题目图片<input id="question-image" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" hidden></label><span>支持粘贴图片 · JPG、PNG、WebP / 浏览器可读取的 iPhone 照片 · 最多 8 MB</span></div><div id="image-attachment" hidden><img id="image-preview" alt="待识别的题目图片"><div><strong id="image-name"></strong><p>请确认题干、图示和单位清晰。图片仅用于本次提问。</p><button type="button" id="remove-image">移除图片</button></div></div><div class="question-actions"><span>AI 答疑需本站账号；不需要 ChatGPT 账号。</span><button id="send-question" class="primary">解答并生成演示 ↗</button></div><p id="qa-error" role="alert"></p><div id="ask-progress" class="ask-progress" role="status" hidden><span></span><p>正在处理题目…</p></div><button id="retry-question" type="button" class="outline-button" hidden>保留原题重试</button></form><div class="question-ideas"><span>填入一道例题</span><button data-question="从 19.6 m 高处以 10 m/s 水平抛出物体，忽略空气阻力，g=9.8 m/s²。求落地时间与射程。">平抛运动</button><button data-question="物体从静止以 2 m/s² 的恒定加速度做直线运动，经过 3 s，求速度与位移。">直线运动</button><button data-question="串联 RC 电路中，R=10 kΩ，C=100 μF，电源电压 U=10 V。电容初始电压为零，求充电过程。">RC 充电</button></div><div id="messages" class="messages" aria-live="polite"></div></section></section>
+      <section class="cinema-section home-learning reveal"><div class="section-heading"><div><p class="section-kicker">04 / KEEP YOUR CURIOSITY</p><h2>每一个“为什么”，都值得探索。</h2></div><button data-view="catalog" class="text-link">浏览知识目录 ↗</button></div><div class="home-topic-links"><button data-topic="newton">受力分析 ↗</button><button data-topic="energy">功与能 ↗</button><button data-topic="gauss">高斯定律 ↗</button><button data-topic="capacitor">电容与能量 ↗</button><button data-topic="lens">薄透镜成像 ↗</button><button data-topic="quantum">量子物理 ↗</button></div><p>42 个专题 · 126 个细分知识条目 · 42 道配图典例</p></section>
+    </main>
+    <main id="qa-view" hidden></main>
+  </div>
+  <dialog id="account-dialog"><div class="dialog-top"><h2 id="account-heading">邮箱登录</h2><button id="close-account" aria-label="关闭登录窗口">×</button></div><p>课程和实验无需登录。本站账号用于识图答疑，不需要 ChatGPT 账号。</p><form id="account-form"><label for="email">邮箱</label><input id="email" type="email" maxlength="254" autocomplete="email" required><div id="password-group"><label for="password">密码</label><div class="password-row"><input id="password" type="password" minlength="10" maxlength="128" autocomplete="current-password" required><button type="button" id="toggle-password" class="eye-button" aria-label="显示密码" aria-pressed="false">显示</button></div></div><small id="account-help">密码为 10–128 个字符。验证与找回邮件的可用状态以服务提示为准。</small><label class="consent-row" id="consent-row" hidden><input type="checkbox" id="consent-checkbox"><span>我已阅读并同意<a href="terms.html" target="_blank" rel="noopener">《用户协议》</a>和<a href="privacy.html" target="_blank" rel="noopener">《隐私政策》</a></span></label><button id="account-submit" class="primary">登录</button><button type="button" id="forgot-password">忘记密码？</button><button type="button" id="account-mode">没有账号？注册</button></form><div id="account-user" hidden><p id="account-email"></p><p id="verification-status"></p><button id="send-verification" class="outline-button">发送验证邮件</button><button id="logout">退出登录</button></div><p id="account-error" role="alert"></p></dialog>
+  <noscript><div class="noscript-box"><h2>物理不愁人</h2><p>当前页面需要启用 JavaScript 才能使用交互演示、公式渲染与识图答疑。启用后可以浏览 42 个物理专题、126 个细分知识条目和 18 个三维实验。</p><p><a href="/privacy.html">隐私政策</a> · <a href="/terms.html">用户协议</a></p></div></noscript>
+  <footer class="site-footer"><a class="footer-brand" href="#home"><span class="brandmark">φ</span><span>物理不愁人<small>PHYSICS, MADE CLEAR.</small></span></a><p>把“我会了”，变成真会了。</p><nav aria-label="页脚"><button id="share-site">分享网站 ↗</button><a href="privacy.html">隐私政策</a><a href="terms.html">用户协议</a></nav><p class="footer-note">AI 解答与辅助配图可能有误，请结合课本核对。题目图片不写入本站数据库；反馈内容仅在你主动提交后保存。</p></footer>
+</body>
+</html>

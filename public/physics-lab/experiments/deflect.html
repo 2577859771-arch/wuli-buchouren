@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>示波管 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="示波管三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>示波管</h1>
+      <p>带电粒子在电场中的加速与偏转</p>
+      <span class="engine ok" id="engine">数值积分 · 步长 0.2 ps</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">当前</span><span class="th"></span>
+      <span class="k">电子速度 <i class="v">v</i>₀</span><span id="h-v0">—</span><span class="th">m/s</span>
+      <span class="k"><i class="v">U<sub>y</sub></i> / V</span><span id="h-uy">0</span><span class="th"></span>
+      <span class="k"><i class="v">U<sub>x</sub></i> / V</span><span id="h-ux">0</span><span class="th"></span>
+      <span class="k">光点 (<i class="v">X</i>, <i class="v">Y</i>) / cm</span><span id="h-xy">0, 0</span><span class="th"></span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--f-g)"></span>高电势极板</div>
+      <div><span class="sw" style="background:var(--ghost)"></span>低电势极板</div>
+      <div><span class="sw" style="background:var(--ground)"></span>电子束</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="btns" role="group" aria-label="模式">
+        <button class="chip" id="mStatic" aria-pressed="true">恒定电压</button>
+        <button class="chip" id="mScope" aria-pressed="false">示波器扫描</button>
+      </div>
+      <div class="row"><label for="u1">加速电压</label><input type="range" id="u1" min="500" max="2500" step="50" value="1000"><output id="u1o"></output></div>
+      <div class="row"><label for="uy"><i class="v">U<sub>y</sub></i></label><input type="range" id="uy" min="-120" max="120" step="1" value="60"><output id="uyo"></output></div>
+      <div class="row"><label for="ux"><i class="v">U<sub>x</sub></i></label><input type="range" id="ux" min="-150" max="150" step="1" value="0"><output id="uxo"></output></div>
+      <div id="scopeOpts" hidden>
+        <div class="row"><label for="ratio">信号/扫描</label><input type="range" id="ratio" min="0.5" max="4" step="0.5" value="2"><output id="ratioo"></output></div>
+        <p class="note">示波器模式：<i class="v">U<sub>y</sub></i> 为正弦信号的幅值，<i class="v">U<sub>x</sub></i> 为锯齿扫描电压的幅值。频率已放慢到肉眼可见。</p>
+      </div>
+      <div class="btns"><button class="primary" id="goBtn">开始</button><button id="resetBtn">清屏</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tBeam" checked>电子束</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">极板长 <i class="v">L</i> = 4 cm，间距 <i class="v">d</i> = 1 cm。<i class="v">Y</i> 偏转板出口到荧光屏 20 cm，<i class="v">X</i> 偏转板出口到荧光屏 14 cm。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">eU</i>₁ = ½<i class="v">mv</i>₀²</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">y</i> = <i class="v">U</i>₂<i class="v">L</i>² ⁄ (4<i class="v">dU</i>₁)</div><div class="sub">离开极板时的偏移；与电子的比荷无关</div></div>
+      <div class="f"><div class="eq"><i class="v">Y</i> = <i class="v">U</i>₂<i class="v">L</i>(<i class="v">L</i>⁄2 + <i class="v">D</i>) ⁄ (2<i class="v">dU</i>₁)</div><div class="sub">出射方向的反向延长线经过极板中点</div></div>
+      <table class="cmp">
+        <thead><tr><th>恒定电压</th><th>公式</th><th>数值积分</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>出板偏移 <i class="v">y</i> / mm</td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td>屏上 <i class="v">Y</i> / cm</td><td id="t2">—</td><td id="s2">—</td><td id="e2">—</td></tr>
+          <tr><td>屏上 <i class="v">X</i> / cm</td><td id="t3">—</td><td id="s3">—</td><td id="e3">—</td></tr>
+          <tr><td>穿越 <i class="v">Y</i> 板用时 / ns</td><td id="t4">—</td><td id="s4">—</td><td id="e4">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note" id="warn"></p>
+    </section>
+  </aside>
+</div>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+$('fitBtn').addEventListener('click', () => stage.goHome());
+Lab.bindShadow(stage, 'tShadow');
+const QM = 1.75882e11, Lp = 4, d = 1, YP = 6, XP = 12, XS = 30, SC = 0.2;   // cm；1 cm = 0.2 场景单位
+const P = {u1:1000, uy:60, ux:0, ratio:2, mode:'static'};
+const S = {t:0, emit:0, es:[], last:null};
+const pl = Lab.player($('goBtn'));
+const mats = { gun: Lab.std('--ink-2', {roughness:0.4, metalness:0.4}), hi: Lab.std('--f-g', {roughness:0.5}), lo: Lab.std('--ghost', {roughness:0.5}),
+  glass: Lab.std('--wall', {transparent:true, opacity:0.18, side:THREE.DoubleSide, depthWrite:false}), frame: Lab.std('--ink-2') };
+Lab.floor(scene, 12, 8, -1.4);
+const w = (x, y, z) => new THREE.Vector3(x*SC, y*SC, z*SC);
+// 电子枪
+const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.35*SC*2, 0.35*SC*2, 4*SC, 24), mats.gun); gun.rotation.z = Math.PI/2; gun.position.copy(w(2, 0, 0)); gun.castShadow = true; scene.add(gun);
+const lgun = Lab.label('电子枪（加速 U₁）', '--ink-2', 0.13); lgun.position.copy(w(0, 2.2, 0)); scene.add(lgun);
+// 偏转板
+function plate(mat){ const m = new THREE.Mesh(new THREE.BoxGeometry(Lp*SC, 0.08*SC, 1.6*SC), mat); m.castShadow = true; scene.add(m); return m; }
+const yTop = plate(mats.hi), yBot = plate(mats.lo); yTop.position.copy(w(YP+Lp/2, d/2+0.05, 0)); yBot.position.copy(w(YP+Lp/2, -d/2-0.05, 0));
+const xA = plate(mats.hi), xB = plate(mats.lo); [xA, xB].forEach(p => p.rotation.x = Math.PI/2); xA.position.copy(w(XP+Lp/2, 0, d/2+0.05)); xB.position.copy(w(XP+Lp/2, 0, -d/2-0.05));
+const ly = Lab.label('Y 偏转板', '--ink-2', 0.12); ly.position.copy(w(YP, 2.2, 0)); scene.add(ly);
+const lx = Lab.label('X 偏转板', '--ink-2', 0.12); lx.position.copy(w(XP, 2.2, 0)); scene.add(lx);
+// 玻璃管
+const tube = new THREE.Mesh(new THREE.CylinderGeometry(6.5*SC, 1.2*SC, (XS-0.5)*SC, 40, 1, true), mats.glass); tube.rotation.z = -Math.PI/2; tube.position.copy(w((XS-0.5)/2, 0, 0)); scene.add(tube);
+// 荧光屏（画布纹理）
+const cv = document.createElement('canvas'); cv.width = cv.height = 512; const ctx = cv.getContext('2d');
+const stex = new THREE.CanvasTexture(cv);
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(12*SC, 12*SC), new THREE.MeshBasicMaterial({map:stex})); screen.rotation.y = -Math.PI/2; screen.position.copy(w(XS, 0, 0)); scene.add(screen);
+const sframe = new THREE.Mesh(new THREE.BoxGeometry(0.1*SC, 12.6*SC, 12.6*SC), mats.frame); sframe.position.copy(w(XS+0.1, 0, 0)); scene.add(sframe);
+function clearScreen(){ ctx.fillStyle = '#0c1a14'; ctx.fillRect(0, 0, 512, 512); grid(); stex.needsUpdate = true; }
+function grid(){ ctx.strokeStyle = 'rgba(120,200,160,0.18)'; ctx.lineWidth = 1; for (let i=0;i<=12;i++){ const p = i*512/12; ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,512); ctx.moveTo(0,p); ctx.lineTo(512,p); ctx.stroke(); } }
+// 屏幕坐标：从电子枪一侧看，X（z 方向）向右，Y 向上
+const toPx = (X, Y) => [256 + X*512/12, 256 - Y*512/12];
+// 电子束（点）
+const NMAX = 240, beamGeo = new THREE.BufferGeometry(); beamGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NMAX*3), 3));
+const beam = new THREE.Points(beamGeo, Lab.themed(new THREE.PointsMaterial({size:0.11, sizeAttenuation:true}), '--ground')); scene.add(beam);
+stage.setHome(w(16, 0, 0), new THREE.Vector3(2.6, 2.1, 5.4));
+const pathLine = Lab.polyline(Lab.lineMat('--ground', {transparent:true, opacity:0.8}), 80); scene.add(pathLine);
+stage.overheadLight(3, 0, 5, 1.5);
+
+const v0 = () => Math.sqrt(2*QM*P.u1);
+function volts(t){
+  if (P.mode === 'static') return [P.uy, P.ux];
+  const fs = 0.5, fy = fs*P.ratio;            // 扫描 0.5 Hz（演示用）
+  const ph = (t*fs) % 1;
+  return [P.uy*Math.sin(2*Math.PI*fy*t), P.ux*(2*ph - 1)];
+}
+// 解析轨迹：给定电压，返回 x 处的 (y, z)，单位 cm
+function lateral(U, x, x0){
+  if (x <= x0) return 0;
+  const k = U/(4*d*P.u1);
+  if (x <= x0 + Lp) return k*(x - x0)**2;
+  return k*Lp*Lp + 2*k*Lp*(x - x0 - Lp);
+}
+function hitsPlate(U){ return Math.abs(U*Lp*Lp/(4*d*P.u1)) > d/2; }
+function screenPos(uy, ux){ return [lateral(ux, XS, XP), lateral(uy, XS, YP)]; }
+
+function numeric(){
+  // SI 单位数值积分：电子在两组极板中的运动
+  const v = v0(), dt = 2e-13, L = Lp/100, D = d/100;
+  let x = 0, y = 0, z = 0, vx = v, vy = 0, vz = 0, t = 0, tIn = null, tOut = null, yOut = null;
+  const xY = YP/100, xX = XP/100, xS = XS/100;
+  while (x < xS){
+    let ay = 0, az = 0;
+    if (x >= xY && x < xY + L){ ay = QM*P.uy/D; if (tIn === null) tIn = t; }
+    else if (tIn !== null && tOut === null){ tOut = t; yOut = y; }
+    if (x >= xX && x < xX + L) az = QM*P.ux/D;
+    vy += ay*dt; vz += az*dt;
+    const xn = x + vx*dt;
+    if (x < xS && xn >= xS){ const f = (xS - x)/(xn - x); y += vy*dt*f; z += vz*dt*f; x = xS; break; }
+    x = xn; y += vy*dt; z += vz*dt; t += dt;
+  }
+  return {y1: yOut*1000, Y: y*100, X: z*100, tt: (tOut - tIn)*1e9};
+}
+function table(){
+  const v = v0();
+  Lab.text('f1', `U₁ = ${P.u1} V，v₀ = √(2eU₁/m) = ${v.toExponential(3)} m/s（约为光速的 ${(v/3e8*100).toFixed(1)}%）`);
+  Lab.text('h-v0', v.toExponential(3));
+  const y1 = P.uy*Lp*Lp/(4*d*P.u1)*10, [X, Y] = screenPos(P.uy, P.ux), tt = Lp/100/v*1e9;
+  const bad = hitsPlate(P.uy) || hitsPlate(P.ux);
+  Lab.text('warn', bad ? '偏转电压过大：电子会打在极板上，到不了荧光屏。' : '');
+  if (bad){ ['t1','s1','e1','t2','s2','e2','t3','s3','e3','t4','s4','e4'].forEach(id => Lab.text(id, '—')); return; }
+  const n = numeric();
+  Lab.text('t1', y1.toFixed(4)); Lab.text('s1', n.y1.toFixed(4)); Lab.text('e1', Lab.relErr(y1, n.y1));
+  Lab.text('t2', Y.toFixed(4)); Lab.text('s2', n.Y.toFixed(4)); Lab.text('e2', Lab.relErr(Y, n.Y));
+  Lab.text('t3', X.toFixed(4)); Lab.text('s3', n.X.toFixed(4)); Lab.text('e3', Lab.relErr(X, n.X));
+  Lab.text('t4', tt.toFixed(4)); Lab.text('s4', n.tt.toFixed(4)); Lab.text('e4', Lab.relErr(tt, n.tt));
+}
+function reset(){ S.t = 0; S.emit = 0; S.es = []; S.last = null; clearScreen(); pl.set('idle'); table(); view(); }
+pl.onRestart = reset;
+const VIS = 24;   // 演示速度：cm/s
+function tick(dt){
+  S.t += dt; S.emit += dt;
+  while (S.emit > 1/60){ S.emit -= 1/60; const [uy, ux] = volts(S.t); if (S.es.length < NMAX) S.es.push({x:0, uy, ux}); }
+  ctx.fillStyle = 'rgba(12,26,20,0.035)'; ctx.fillRect(0, 0, 512, 512);
+  if (Math.random() < 0.05) grid();
+  for (let i = S.es.length - 1; i >= 0; i--){
+    const e = S.es[i]; e.x += VIS*dt*6;
+    const blocked = (hitsPlate(e.uy) && e.x > YP + Lp*0.6) || (hitsPlate(e.ux) && e.x > XP + Lp*0.6);
+    if (blocked){ S.es.splice(i, 1); continue; }
+    if (e.x >= XS){
+      const [X, Y] = screenPos(e.uy, e.ux), p = toPx(X, Y);
+      ctx.strokeStyle = 'rgba(140,255,190,0.9)'; ctx.lineWidth = 3; ctx.beginPath();
+      if (S.last && Math.hypot(S.last[0]-p[0], S.last[1]-p[1]) < 120){ ctx.moveTo(S.last[0], S.last[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(200,255,220,0.9)'; ctx.beginPath(); ctx.arc(p[0], p[1], 3.2, 0, 7); ctx.fill();
+      S.last = p; Lab.text('h-xy', `${X.toFixed(2)}, ${Y.toFixed(2)}`);
+      S.es.splice(i, 1);
+    }
+  }
+  stex.needsUpdate = true;
+}
+function view(){
+  const a = beamGeo.attributes.position.array; let n = 0;
+  if ($('tBeam').checked) for (const e of S.es){ a[n*3] = e.x*SC; a[n*3+1] = lateral(e.uy, e.x, YP)*SC; a[n*3+2] = lateral(e.ux, e.x, XP)*SC; n++; }
+  beamGeo.setDrawRange(0, n); beamGeo.attributes.position.needsUpdate = true; beamGeo.computeBoundingSphere();
+  const [uy, ux] = volts(S.t);
+  // 当前电压下的完整轨迹
+  const pts = []; let xEnd = XS;
+  if (hitsPlate(uy)) xEnd = YP + Math.min(Lp, Math.sqrt(d/2*4*d*P.u1/Math.abs(uy)));
+  else if (hitsPlate(ux)) xEnd = XP + Math.min(Lp, Math.sqrt(d/2*4*d*P.u1/Math.abs(ux)));
+  for (let i=0;i<=79;i++){ const x = xEnd*i/79; pts.push(w(x, lateral(uy, x, YP), lateral(ux, x, XP))); }
+  pathLine.setPoints(pts); pathLine.visible = $('tBeam').checked;
+  Lab.text('h-uy', uy.toFixed(1)); Lab.text('h-ux', ux.toFixed(1));
+  // 极板颜色随极性翻转
+  yTop.material = uy >= 0 ? mats.hi : mats.lo; yBot.material = uy >= 0 ? mats.lo : mats.hi;
+  xA.material = ux >= 0 ? mats.hi : mats.lo; xB.material = ux >= 0 ? mats.lo : mats.hi;
+}
+stage.onFrame(dt => { if (pl.phase === 'run'){ tick(dt); view(); } });
+function setMode(m){ P.mode = m; $('mStatic').setAttribute('aria-pressed', m === 'static'); $('mScope').setAttribute('aria-pressed', m === 'scope'); $('scopeOpts').hidden = m !== 'scope';
+  if (m === 'scope' && Math.abs(P.ux) < 1){ uxR.set(120); } reset(); }
+$('mStatic').addEventListener('click', () => setMode('static'));
+$('mScope').addEventListener('click', () => setMode('scope'));
+Lab.range('u1', v => v+' V', v => { P.u1 = v; table(); });
+Lab.range('uy', v => v+' V', v => { P.uy = v; table(); });
+const uxR = Lab.range('ux', v => v+' V', v => { P.ux = v; table(); });
+Lab.range('ratio', v => v+' : 1', v => { P.ratio = v; });
+P.u1 = +$('u1').value; P.uy = +$('uy').value; P.ux = +$('ux').value; P.ratio = +$('ratio').value;
+$('resetBtn').addEventListener('click', () => { clearScreen(); S.last = null; });
+$('tBeam').addEventListener('change', view);
+reset();
+})();
+</script>
+</body>
+</html>

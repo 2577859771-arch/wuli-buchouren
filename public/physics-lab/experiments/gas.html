@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>理想气体的分子动理论 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="理想气体的分子动理论三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>理想气体的分子动理论</h1>
+      <p>分子碰撞器壁产生压强，速率分布趋向麦克斯韦分布</p>
+      <span class="engine ok" id="engine">硬球分子动力学 · 步长 1/240</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i></span><span id="h-t">0.0</span><span class="th">—</span>
+      <span class="k">温度 <i class="v">T</i></span><span id="h-T">0</span><span class="th" id="h-Tt">0</span>
+      <span class="k">压强 <i class="v">p</i></span><span id="h-p">—</span><span class="th" id="h-pt">0</span>
+      <span class="k">体积 <i class="v">V</i></span><span id="h-V">0</span><span class="th">—</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--ghost)"></span>慢分子</div>
+      <div><span class="sw" style="background:var(--f-g)"></span>快分子</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="N">分子数 <i class="v">N</i></label><input type="range" id="N" min="50" max="400" step="10" value="250"><output id="No"></output></div>
+      <div class="row"><label for="T">温度 <i class="v">T</i></label><input type="range" id="T" min="0.5" max="4" step="0.05" value="1.5"><output id="To"></output></div>
+      <div class="row"><label for="H">活塞高度</label><input type="range" id="H" min="1.5" max="5" step="0.05" value="4"><output id="Ho"></output></div>
+      <div class="row"><label for="init">初始状态</label><select id="init"><option value="same" selected>所有分子速率相同</option><option value="mb">麦克斯韦分布</option></select><span></span></div>
+      <div class="row"><label for="speed">播放速度</label><select id="speed"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">开始</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tCol" checked>分子间碰撞</label>
+        <label><input type="checkbox" id="tTrack" checked>追踪一个分子</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">约化单位：分子质量 <i class="v">m</i> = 1，玻尔兹曼常量 <i class="v">k</i> = 1。容器底面 4 × 4。分子半径很小（0.05），由分子自身体积带来的偏差约 1%。调节温度会按比例缩放所有分子的速度；移动活塞时保持温度不变（等温过程）。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">p</i> = ⅓<i class="v">nm</i>‾<i class="v">v</i>²‾ = <i class="v">NkT</i> ⁄ <i class="v">V</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq">½<i class="v">m</i>‾<i class="v">v</i>²‾ = 3⁄2 <i class="v">kT</i></div><div class="sub">温度是分子平均动能的标志</div></div>
+      <div class="f"><div class="eq"><i class="v">f</i>(<i class="v">v</i>) = 4π(<i class="v">m</i>⁄2π<i class="v">kT</i>)<sup>3⁄2</sup> <i class="v">v</i>² e<sup>−<i class="v">mv</i>²⁄2<i class="v">kT</i></sup></div><div class="sub">麦克斯韦速率分布；分子间碰撞会让任何初始分布趋向它</div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>压强 <i class="v">p</i></td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td><i class="v">pV</i> ⁄ <i class="v">NT</i></td><td>1</td><td id="s2">—</td><td id="e2">—</td></tr>
+          <tr><td>方均根速率</td><td id="t3">—</td><td id="s3">—</td><td id="e3">—</td></tr>
+          <tr><td>平均速率</td><td id="t4">—</td><td id="s4">—</td><td id="e4">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note">压强取最近 3 个时间单位内器壁受到的总冲量，分子数有限，读数会有几个百分点的涨落。平均速率在分布达到平衡后才与理论一致。</p>
+    </section>
+    <section>
+      <h2>速率分布</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ghost)"></span>仿真直方图</span><span><span class="sw bar" style="background:var(--theory)"></span>麦克斯韦分布（虚线）</span></div>
+    </section>
+  </aside>
+</div>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+$('fitBtn').addEventListener('click', () => stage.goHome());
+Lab.bindShadow(stage, 'tShadow');
+const W = 4, R = 0.05, DT = 1/240, NB = 28;
+const P = {N:250, T:1.5, H:4, init:'same', speed:1};
+const S = {t:0, x:null, v:null, imp:[], bucket:0, bt:0, hist:new Float32Array(NB)};
+const pl = Lab.player($('goBtn'));
+const mats = { wall: Lab.themed(new THREE.MeshStandardMaterial({transparent:true, opacity:0.08, side:THREE.DoubleSide, depthWrite:false}), '--ink-2'),
+  edge: Lab.lineMat('--ink-2'), piston: Lab.std('--ink-2', {roughness:0.4, metalness:0.4}), mol: new THREE.MeshStandardMaterial({roughness:0.4}), track: Lab.lineMat('--ball') };
+Lab.floor(scene, 14, 14, -0.02);
+const box = new THREE.Mesh(new THREE.BoxGeometry(W, 1, W), mats.wall); scene.add(box);
+const boxEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W, 1, W)), mats.edge); scene.add(boxEdge);
+const piston = new THREE.Mesh(new THREE.BoxGeometry(W - 0.02, 0.12, W - 0.02), mats.piston); piston.castShadow = true; scene.add(piston);
+const rodP = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2, 12), mats.piston); scene.add(rodP);
+const MAXN = 400, mols = new THREE.InstancedMesh(new THREE.SphereGeometry(R, 10, 8), mats.mol, MAXN); mols.castShadow = true; scene.add(mols);
+const tracer = new THREE.Mesh(new THREE.SphereGeometry(R*1.6, 16, 12), Lab.std('--ball')); scene.add(tracer);
+const trail = Lab.polyline(mats.track, 600); scene.add(trail);
+const chart = Lab.Chart($('chart'), {xLabel:'v', series:[{color:'--ghost', width:2}, {color:'--theory', dash:true}]});
+stage.setHome(new THREE.Vector3(0, 2, 0), new THREE.Vector3(5.2, 5.4, 7.6));
+stage.overheadLight(0, 0, 4, 6);
+const tmp = new THREE.Object3D(), cSlow = new THREE.Color(), cFast = new THREE.Color();
+const paint = () => { cSlow.copy(Lab.col('--ghost')); cFast.copy(Lab.col('--f-g')); }; paint(); Lab.onTheme(paint);
+
+function gauss(){ let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function reset(){
+  const N = P.N; S.t = 0; S.x = new Float32Array(N*3); S.v = new Float32Array(N*3); S.imp = []; S.bucket = 0; S.bt = 0; S.hist.fill(0); S.histN = 0;
+  for (let i=0;i<N;i++){
+    S.x[i*3] = R + Math.random()*(W - 2*R); S.x[i*3+1] = R + Math.random()*(P.H - 2*R); S.x[i*3+2] = R + Math.random()*(W - 2*R);
+    if (P.init === 'mb'){ const s = Math.sqrt(P.T); S.v[i*3] = gauss()*s; S.v[i*3+1] = gauss()*s; S.v[i*3+2] = gauss()*s; }
+    else { const c = 2*Math.random() - 1, ph = 2*Math.PI*Math.random(), s = Math.sqrt(1 - c*c), sp = Math.sqrt(3*P.T); S.v[i*3] = sp*s*Math.cos(ph); S.v[i*3+1] = sp*c; S.v[i*3+2] = sp*s*Math.sin(ph); }
+  }
+  rescale(P.T); trail.clear(); geometry(); pl.set('idle'); stats(); view();
+}
+pl.onRestart = reset;
+function kinT(){ let s = 0; for (let i=0;i<P.N*3;i++) s += S.v[i]*S.v[i]; return s/(3*P.N); }
+function rescale(T){ const k = Math.sqrt(T/kinT()); for (let i=0;i<P.N*3;i++) S.v[i] *= k; S.imp = []; }
+function geometry(){
+  box.scale.y = P.H; box.position.set(0, P.H/2, 0); boxEdge.scale.y = P.H; boxEdge.position.set(0, P.H/2, 0);
+  piston.position.set(0, P.H + 0.06, 0); rodP.position.set(0, P.H + 1.1, 0);
+}
+function step(){
+  const N = P.N, x = S.x, v = S.v, H = P.H; let imp = 0;
+  for (let i=0;i<N;i++){
+    for (let a=0;a<3;a++){
+      const k = i*3 + a, hi = (a === 1 ? H : W);   // 以分子中心碰壁计算，可到达体积即 V
+      x[k] += v[k]*DT;
+      if (x[k] < 0){ x[k] = -x[k]; v[k] = -v[k]; imp += 2*Math.abs(v[k]); }
+      else if (x[k] > hi){ x[k] = 2*hi - x[k]; v[k] = -v[k]; imp += 2*Math.abs(v[k]); }
+    }
+  }
+  if ($('tCol').checked){
+    const d2 = 4*R*R;
+    for (let i=0;i<N;i++){ const ix = i*3;
+      for (let j=i+1;j<N;j++){ const jx = j*3;
+        const dx = x[ix]-x[jx]; if (dx > 2*R || dx < -2*R) continue;
+        const dy = x[ix+1]-x[jx+1], dz = x[ix+2]-x[jx+2], r2 = dx*dx+dy*dy+dz*dz;
+        if (r2 < d2 && r2 > 1e-12){
+          const dvx = v[ix]-v[jx], dvy = v[ix+1]-v[jx+1], dvz = v[ix+2]-v[jx+2], dot = dvx*dx+dvy*dy+dvz*dz;
+          if (dot < 0){ const f = dot/r2; v[ix]-=f*dx; v[ix+1]-=f*dy; v[ix+2]-=f*dz; v[jx]+=f*dx; v[jx+1]+=f*dy; v[jx+2]+=f*dz; }
+        }
+      }
+    }
+  }
+  S.t += DT; S.bucket += imp; S.bt += DT;
+  if (S.bt >= 0.1){ S.imp.push([S.bucket, S.bt]); if (S.imp.length > 30) S.imp.shift(); S.bucket = 0; S.bt = 0; }
+  if (Math.round(S.t/DT) % 6 === 0) sample();
+  if (Math.round(S.t/DT) % 3 === 0 && $('tTrack').checked) trail.push(new THREE.Vector3(x[0] - W/2, x[1], x[2] - W/2));
+}
+const drive = Lab.stepper(DT, step);
+const vmax = () => 4*Math.sqrt(P.T);
+function sample(){
+  const h = new Float32Array(NB), vm = vmax();
+  for (let i=0;i<P.N;i++){ const s = Math.hypot(S.v[i*3], S.v[i*3+1], S.v[i*3+2]), b = Math.floor(s/vm*NB); if (b < NB) h[b]++; }
+  const a = 0.08; for (let b=0;b<NB;b++) S.hist[b] = S.hist[b]*(1 - a) + h[b]*a;
+  S.histN = S.histN*(1 - a) + P.N*a;
+}
+function pressure(){ const A = 2*(W*W + 2*W*P.H); let I = 0, T = 0; S.imp.forEach(([i, t]) => { I += i; T += t; }); return T > 0.5 ? I/(T*A) : null; }
+function stats(){
+  const V = W*W*P.H, pT = P.N*P.T/V, Tk = kinT(), p = pressure();
+  let s1 = 0; for (let i=0;i<P.N;i++) s1 += Math.hypot(S.v[i*3], S.v[i*3+1], S.v[i*3+2]);
+  const vrms = Math.sqrt(3*Tk), vmean = s1/P.N;
+  Lab.text('f1', `N = ${P.N}，T = ${P.T}，V = ${V.toFixed(2)} ⇒ p = ${pT.toFixed(4)}`);
+  Lab.text('t1', pT.toFixed(4)); Lab.text('s1', p === null ? '测量中…' : p.toFixed(4)); Lab.text('e1', p === null ? '—' : Lab.relErr(pT, p));
+  const r = p === null ? null : p*V/(P.N*Tk); Lab.text('s2', r === null ? '—' : r.toFixed(4)); Lab.text('e2', r === null ? '—' : Lab.relErr(1, r));
+  Lab.text('t3', Math.sqrt(3*P.T).toFixed(4)); Lab.text('s3', vrms.toFixed(4)); Lab.text('e3', Lab.relErr(Math.sqrt(3*P.T), vrms));
+  const vmT = Math.sqrt(8*P.T/Math.PI); Lab.text('t4', vmT.toFixed(4)); Lab.text('s4', vmean.toFixed(4)); Lab.text('e4', Lab.relErr(vmT, vmean));
+  Lab.text('h-t', S.t.toFixed(1)); Lab.text('h-T', Tk.toFixed(3)); Lab.text('h-Tt', P.T.toFixed(3));
+  Lab.text('h-p', p === null ? '—' : p.toFixed(4)); Lab.text('h-pt', pT.toFixed(4)); Lab.text('h-V', V.toFixed(2));
+  // 直方图
+  chart.clear(); const vm = vmax(), bw = vm/NB, n = S.histN || 1;
+  chart.setXMax(vm); const fmax = 1.25*Math.sqrt(2/(Math.PI*P.T))*2/Math.E*1.2; chart.setYRange(0, Math.max(0.1, 0.62/Math.sqrt(P.T)));
+  if (S.histN > 0) for (let b=0;b<NB;b++){ const y = S.hist[b]/(n*bw); chart.push(0, b*bw, y); chart.push(0, (b+1)*bw, y); }
+  for (let i=0;i<=120;i++){ const s = vm*i/120; chart.push(1, s, 4*Math.PI*Math.pow(1/(2*Math.PI*P.T), 1.5)*s*s*Math.exp(-s*s/(2*P.T))); }
+  chart.draw();
+}
+function view(){
+  const vm = Math.sqrt(3*P.T)*1.6, c = new THREE.Color();
+  for (let i=0;i<P.N;i++){
+    tmp.position.set(S.x[i*3] - W/2, S.x[i*3+1], S.x[i*3+2] - W/2); tmp.updateMatrix(); mols.setMatrixAt(i, tmp.matrix);
+    const s = Math.hypot(S.v[i*3], S.v[i*3+1], S.v[i*3+2]); c.copy(cSlow).lerp(cFast, Math.min(1, s/vm)); mols.setColorAt(i, c);
+  }
+  mols.count = P.N; mols.instanceMatrix.needsUpdate = true; if (mols.instanceColor) mols.instanceColor.needsUpdate = true;
+  const on = $('tTrack').checked; tracer.visible = trail.visible = on;
+  tracer.position.set(S.x[0] - W/2, S.x[1], S.x[2] - W/2);
+}
+let acc = 0;
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, P.speed); view(); acc += dt; if (acc > 0.25){ acc = 0; stats(); } } });
+Lab.range('N', v => v, v => { P.N = v; reset(); });
+Lab.range('T', v => v.toFixed(2), v => { P.T = v; rescale(v); stats(); view(); });
+Lab.range('H', v => v.toFixed(2), v => {
+  P.H = v; for (let i=0;i<P.N;i++) if (S.x[i*3+1] > v - R) S.x[i*3+1] = R + Math.random()*(v - 2*R);
+  S.imp = []; geometry(); stats(); view(); });
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('init').addEventListener('change', e => { P.init = e.target.value; reset(); });
+['N','T','H'].forEach(k => P[k] = +$(k).value);
+$('resetBtn').addEventListener('click', reset);
+$('tTrack').addEventListener('change', () => { trail.clear(); view(); });
+reset();
+})();
+</script>
+</body>
+</html>

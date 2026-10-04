@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>3D 实验室 · 物理不愁人</title>
+  <link rel="stylesheet" href="lab3d.css">
+  <script src="lab3d.js" type="module"></script>
+</head>
+<body class="lab3d-page">
+  <header class="lab3d-header">
+    <a class="lab3d-brand" href="./#home">φ 物理不愁人</a>
+    <a id="lab3d-return" href="./#home">返回课程</a>
+    <label class="lab3d-theme">外观 <select id="lab3d-theme"><option value="auto">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+  </header>
+  <main class="lab3d-main">
+    <div class="lab3d-intro"><p class="lab3d-eyebrow">18 个实验 · 4 个探索方向</p><h1>把物理过程转到眼前</h1><p>从一颗小球到行星轨道，从分子碰撞到光的干涉。拖动旋转视角、调整条件，再对照数据与理论。</p></div>
+    <nav id="lab3d-categories" class="lab3d-categories" aria-label="选择实验分类"></nav>
+    <p id="lab3d-category-note" class="lab3d-category-note">运动、受力与守恒</p>
+    <nav id="lab3d-tabs" class="lab3d-tabs" aria-label="选择 3D 实验"></nav>
+    <section class="lab3d-experiment" aria-labelledby="lab3d-title">
+      <div class="lab3d-toolbar"><div><h2 id="lab3d-title">平抛运动</h2><p id="lab3d-description">水平方向匀速与竖直自由落体同时发生。</p></div><a id="lab3d-open" target="_blank" rel="noopener noreferrer">单独打开实验 ↗</a></div>
+      <p id="lab3d-status" role="status">正在加载实验…</p>
+      <iframe id="lab3d-frame" title="平抛运动 3D 实验" allow="fullscreen" referrerpolicy="same-origin"></iframe>
+    </section>
+    <p class="lab3d-footnote">3D 功能需要浏览器支持 WebGL。手机上可用“单独打开实验”获得更大操作空间。字体加载不到时自动使用系统字体；请查看实验内的引擎提示，确认 Rapier 或内置算法的实际状态。</p>
+    <noscript>请启用 JavaScript，或<a href="./physics-lab/index.html">直接打开原实验列表</a>。</noscript>
+  </main>
+</body>
+</html>

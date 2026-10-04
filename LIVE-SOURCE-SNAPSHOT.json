@@ -1,0 +1,222 @@
+{
+  "source": "https://b9e0127e0ff048ddbf63154bc0d80fe3.app.workbuddy.host/",
+  "capturedAt": "2026-10-04T04:05:59.953Z",
+  "files": [
+    {
+      "file": "apple-touch-icon.png",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 1857
+    },
+    {
+      "file": "privacy.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 3884
+    },
+    {
+      "file": "terms.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 3643
+    },
+    {
+      "file": "index.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 12507
+    },
+    {
+      "file": "cover.png",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 137591
+    },
+    {
+      "file": "enhance.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 10580
+    },
+    {
+      "file": "content.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 42443
+    },
+    {
+      "file": "answer-renderer.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 3131
+    },
+    {
+      "file": "community.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 12153
+    },
+    {
+      "file": "app.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 21527
+    },
+    {
+      "file": "lab3d-entry.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 798
+    },
+    {
+      "file": "gifenc.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 10188
+    },
+    {
+      "file": "lab3d.css",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 3191
+    },
+    {
+      "file": "gif-worker.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 724
+    },
+    {
+      "file": "illustration-client.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 1925
+    },
+    {
+      "file": "physics.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 4319
+    },
+    {
+      "file": "more-content.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 9578
+    },
+    {
+      "file": "lab3d.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 3432
+    },
+    {
+      "file": "lesson-visuals.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 18637
+    },
+    {
+      "file": "models.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 23704
+    },
+    {
+      "file": "scenes.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 10346
+    },
+    {
+      "file": "problem-player.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 7437
+    },
+    {
+      "file": "problem-physics.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 14283
+    },
+    {
+      "file": "study-notes.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 23002
+    },
+    {
+      "file": "style.css",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 41438
+    },
+    {
+      "file": "physics-lab/experiments/conical.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 17658
+    },
+    {
+      "file": "worked-examples.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 31217
+    },
+    {
+      "file": "physics-lab/experiments/collision.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 15408
+    },
+    {
+      "file": "physics-lab/experiments/projectile.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 29338
+    },
+    {
+      "file": "physics-lab/experiments/incline.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 16771
+    },
+    {
+      "file": "physics-lab/lib/lab.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 10957
+    },
+    {
+      "file": "physics-lab/lib/lab.css",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 6169
+    },
+    {
+      "file": "lab3d.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 2538
+    },
+    {
+      "file": "physics-lab/experiments/pendulum.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 16080
+    },
+    {
+      "file": "physics-lab/experiments/spring.html",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 16622
+    },
+    {
+      "file": "physics-lab/lib/OrbitControls.js",
+      "status": 200,
+      "downloaded": true,
+      "bytes": 26375
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+@title 杨氏双缝干涉
+@sub 光程差、干涉条纹与条纹间距
+@badge 惠更斯–菲涅耳叠加 · 精确光程差
+@hud
+      <span class="k"></span><span class="k">条纹测量</span><span class="th">公式</span>
+      <span class="k">条纹间距 Δ<i class="v">x</i> / mm</span><span id="h-dx">—</span><span class="th" id="h-dxt">—</span>
+      <span class="k">中央包络内亮纹数</span><span id="h-n">—</span><span class="th" id="h-nt">—</span>
+@legend
+      <div><span class="sw" id="lgc" style="background:#2f2"></span>光的颜色由波长决定</div>
+      <div><span class="sw bar" style="background:var(--ink-2)"></span>双缝挡板与光屏</div>
+@aside
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="lam">波长 <i class="v">λ</i></label><input type="range" id="lam" min="400" max="700" step="5" value="550"><output id="lamo"></output></div>
+      <div class="btns" role="group" aria-label="光源">
+        <button class="chip" data-l="450">蓝光</button><button class="chip" data-l="532">绿光激光</button><button class="chip" data-l="633">氦氖激光</button>
+      </div>
+      <div class="row"><label for="d">缝间距 <i class="v">d</i></label><input type="range" id="d" min="0.1" max="1" step="0.01" value="0.25"><output id="do"></output></div>
+      <div class="row"><label for="a">单缝宽度 <i class="v">a</i></label><input type="range" id="a" min="0.02" max="0.1" step="0.005" value="0.05"><output id="ao"></output></div>
+      <div class="row"><label for="L">缝屏距离 <i class="v">L</i></label><input type="range" id="L" min="0.5" max="3" step="0.05" value="1.2"><output id="Lo"></output></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tWave" checked>波面示意</label>
+        <label><input type="checkbox" id="tAnim" checked>波动画</label>
+        <label><input type="checkbox" id="tShadow">实时阴影</label>
+      </div>
+      <p class="note">中间的波面图只是示意，波长被放大了上万倍；光屏上的条纹按真实尺寸计算，屏宽 40 mm。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq">光程差 <i class="v">δ</i> = <i class="v">d</i> sin <i class="v">θ</i> = <i class="v">kλ</i> 时为亮纹</div><div class="sub">两列光波在屏上相遇，光程差为波长的整数倍时相互加强</div></div>
+      <div class="f"><div class="eq">Δ<i class="v">x</i> = <i class="v">Lλ</i> ⁄ <i class="v">d</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq">单缝衍射包络第一暗纹：<i class="v">a</i> sin <i class="v">θ</i> = <i class="v">λ</i></div><div class="sub" id="f2"></div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>公式</th><th>测量</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>条纹间距 / mm</td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td>第 3 条暗纹位置 / mm</td><td id="t2">—</td><td id="s2">—</td><td id="e2">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note">“测量”是在屏上光强分布里逐点寻找暗纹（极小值）得到的。亮纹的位置会被单缝衍射包络轻微拉向中央，暗纹则不会，所以实验中常用暗纹或多条纹的总宽度来测间距。计算用的是精确光程差，与小角度公式之间只有极小的差别。</p>
+    </section>
+    <section>
+      <h2>屏上光强分布</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ghost)"></span>光强 <i class="v">I</i>（x 单位 mm）</span><span><span class="sw bar" style="background:var(--theory)"></span>单缝衍射包络</span></div>
+    </section>
+@script
+const P = {lam:550, d:0.25, a:0.05, L:1.2};
+Lab.applyQuestion(P);
+const SX = 0, PW = 40;    // 屏宽 40 mm
+const scrX = () => 1.2 + P.L*1.8;
+const mats = { plate: Lab.std('--ink-2', {roughness:0.6, metalness:0.2}), box: Lab.std('--ink', {roughness:0.4}), frame: Lab.std('--ink-2') };
+Lab.floor(scene, 16, 8, -1.2);
+const laser = new THREE.Mesh(new THREE.BoxGeometry(1, 0.3, 0.3), mats.box); laser.position.set(-3.6, 0, 0); scene.add(laser);
+const plateG = new THREE.Group(); scene.add(plateG);
+// 波面平面（示意）
+const WW = 256, WH = 128, wcv = document.createElement('canvas'); wcv.width = WW; wcv.height = WH; const wctx = wcv.getContext('2d'); const wimg = wctx.createImageData(WW, WH);
+const wtex = new THREE.CanvasTexture(wcv);
+const wplane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({map:wtex, transparent:true, opacity:0.9, side:THREE.DoubleSide, depthWrite:false}));
+wplane.rotation.x = -Math.PI/2; scene.add(wplane);
+// 光屏
+const scv = document.createElement('canvas'); scv.width = 512; scv.height = 64; const sctx = scv.getContext('2d');
+const stex = new THREE.CanvasTexture(scv);
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), new THREE.MeshBasicMaterial({map:stex, side:THREE.DoubleSide})); screen.rotation.y = -Math.PI/2; scene.add(screen);
+const sframe = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 3.3), mats.frame); scene.add(sframe);
+const beam = Lab.beam(0x22ff22, 0.03); scene.add(beam);
+const scaleLab = Lab.label('屏宽 40 mm', '--ink-2', 0.16); scene.add(scaleLab);
+const chart = Lab.Chart($('chart'), {xLabel:'x / mm', xMin:-PW/2, xMax:PW/2, yRange:[0, 1.05], series:[{color:'--ghost'}, {color:'--theory', dash:true}]});
+stage.overheadLight(0, 0, 6, 2);
+stage.renderer.shadowMap.enabled = false;
+
+function I(xmm){
+  const L = P.L*1000, s = xmm/Math.sqrt(xmm*xmm + L*L), lam = P.lam*1e-6;   // mm
+  const b = Math.PI*P.a*s/lam, env = Math.abs(b) < 1e-9 ? 1 : (Math.sin(b)/b)**2;
+  return {i: Math.cos(Math.PI*P.d*s/lam)**2*env, env};
+}
+const dxT = () => P.L*1000*P.lam*1e-6/P.d;
+function measure(){
+  // 逐点扫描寻找光强极大值
+  const N = 40000, xs = [], dx = PW/N;
+  let prev = I(-PW/2 - dx).i, cur = I(-PW/2).i;
+  for (let k=1;k<=N;k++){
+    const x = -PW/2 + k*dx, nx = I(x).i;
+    if (cur < prev && cur <= nx && cur < 0.02){
+      // 抛物线插值精确定位
+      const den = prev - 2*cur + nx, off = den !== 0 ? 0.5*(prev - nx)/den : 0;
+      xs.push(x - dx + off*dx);
+    }
+    prev = cur; cur = nx;
+  }
+  return xs;
+}
+function build(){
+  while (plateG.children.length){ const o = plateG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const gap = 0.25 + P.d*0.9, sw = 0.03 + P.a*1.2, H = 1.2;
+  // 挡板：中间留两条缝
+  const parts = [[-(1.6 + gap/2 + sw/2)/2 - (gap/2 + sw/2)/2 - 0.0, 1.6 - gap/2 - sw/2]];
+  const zA = gap/2 + sw/2, zB = gap/2 - sw/2;   // 缝的外沿与内沿
+  const pieces = [[-1.6, -zA], [-zB, zB], [zA, 1.6]];
+  pieces.forEach(([z0, z1]) => { if (z1 - z0 < 1e-3) return; const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, H, z1 - z0), mats.plate); m.position.set(SX, 0, (z0 + z1)/2); plateG.add(m); });
+  const l = Lab.label(`d = ${P.d} mm`, '--ink-2', 0.16); l.position.set(SX - 0.1, 0.8, 0); plateG.add(l);
+  const X = scrX();
+  screen.position.set(X, 0, 0); sframe.position.set(X + 0.04, 0, 0); scaleLab.position.set(X - 0.1, 0.75, -1.5);
+  wplane.scale.set(X + 3.0, 3.2, 1); wplane.position.set((X - 3.0)/2, -0.005, 0);
+  beam.setEnds(new THREE.Vector3(-3.1, 0, 0), new THREE.Vector3(SX, 0, 0));
+  stage.setHome(new THREE.Vector3(X/2 - 0.6, 0, 0), new THREE.Vector3(X/2 + 1.0, 4.4, 4.8 + X*0.6));
+  S.gap = gap;
+}
+const S = {t:0, gap:0.5};
+function drawScreen(){
+  const col = Lab.waveColor(P.lam);
+  const img = sctx.createImageData(512, 64);
+  for (let i=0;i<512;i++){
+    const x = (i/511 - 0.5)*PW, v = Math.pow(I(x).i, 0.8);
+    for (let j=0;j<64;j++){ const k = (j*512 + i)*4; img.data[k] = col.r*255*v; img.data[k+1] = col.g*255*v; img.data[k+2] = col.b*255*v; img.data[k+3] = 255; }
+  }
+  sctx.putImageData(img, 0, 0); stex.needsUpdate = true;
+  beam.material.color = col; $('lgc').style.background = '#' + col.getHexString();
+}
+function drawWave(t){
+  if (!$('tWave').checked){ wplane.visible = false; return; }
+  wplane.visible = true;
+  const col = Lab.waveColor(P.lam), X = scrX(), x0 = -3.0, x1 = X, zH = 1.6;
+  const lamD = 0.14*P.lam/550, k = 2*Math.PI/lamD, wt = t*2*Math.PI*1.2, g = S.gap/2;
+  const D = wimg.data;
+  for (let j=0;j<WH;j++){
+    const z = (j/(WH-1) - 0.5)*2*zH;
+    for (let i=0;i<WW;i++){
+      const x = x0 + (x1 - x0)*i/(WW-1);
+      let v;
+      if (x < SX) v = Math.cos(k*(x - SX) - wt)*0.8;
+      else { const r1 = Math.hypot(x - SX, z - g) + 1e-3, r2 = Math.hypot(x - SX, z + g) + 1e-3; v = (Math.cos(k*r1 - wt) + Math.cos(k*r2 - wt))*0.5/Math.sqrt(1 + r1*0.6); }
+      const b = Math.max(0, v), q = (j*WW + i)*4;
+      D[q] = col.r*255; D[q+1] = col.g*255; D[q+2] = col.b*255; D[q+3] = Math.min(255, b*b*255*1.4);
+    }
+  }
+  wctx.putImageData(wimg, 0, 0); wtex.needsUpdate = true;
+}
+function update(){
+  build(); drawScreen(); drawWave(S.t);
+  const peaks = measure(), dT = dxT();
+  // 暗纹位置只由 cos² 项决定，不受单缝包络影响：用中央两侧各 3 条暗纹求平均间距
+  const pos = peaks.filter(x => x > 0).sort((a,b) => a-b), neg = peaks.filter(x => x < 0).sort((a,b) => b-a);
+  const use = neg.slice(0, 3).reverse().concat(pos.slice(0, 3));
+  const dM = use.length > 1 ? (use[use.length-1] - use[0])/(use.length - 1) : null;
+  const x3M = pos[2];
+  const envEdge0 = P.L*1000*Math.tan(Math.asin(Math.min(1, P.lam*1e-6/P.a)));
+  const envEdge = P.L*1000*Math.tan(Math.asin(Math.min(1, P.lam*1e-6/P.a)));
+  const inEnv = (() => { let n = 0; for (let k = -40; k <= 40; k++){ const x = P.L*1000*Math.tan(Math.asin(Math.min(1, k*P.lam*1e-6/P.d))); if (Math.abs(x) < envEdge - 1e-6 && I(x).i > 1e-3) n++; } return n; })(), nT = 2*Math.floor(P.d/P.a - 1e-9) - 1 + (Math.abs(P.d/P.a - Math.round(P.d/P.a)) < 1e-9 ? 0 : 0);
+  Lab.text('f1', `Δx = ${P.L} m × ${P.lam} nm ÷ ${P.d} mm = ${dT.toFixed(4)} mm`);
+  Lab.text('f2', `包络第一暗纹在 x = ±${envEdge.toFixed(2)} mm；中央包络内约有 2d/a − 1 = ${(2*P.d/P.a - 1).toFixed(1)} 条亮纹`);
+  Lab.text('t1', dT.toFixed(4)); Lab.text('s1', dM ? dM.toFixed(4) : '—'); Lab.text('e1', dM ? Lab.relErr(dT, dM) : '—');
+  Lab.text('t2', (2.5*dT).toFixed(4)); Lab.text('s2', x3M ? x3M.toFixed(4) : '超出屏幕'); Lab.text('e2', x3M ? Lab.relErr(2.5*dT, x3M) : '—');
+  Lab.text('h-dx', dM ? dM.toFixed(4) : '—'); Lab.text('h-dxt', dT.toFixed(4));
+  Lab.text('h-n', envEdge < PW/2 ? String(inEnv) : '超出屏幕'); Lab.text('h-nt', (2*P.d/P.a - 1).toFixed(1));
+  chart.clear();
+  for (let i=0;i<=1200;i++){ const x = (i/1200 - 0.5)*PW, r = I(x); chart.push(0, x, r.i); chart.push(1, x, r.env); }
+  chart.draw();
+}
+let acc = 0;
+stage.onFrame(dt => { if ($('tAnim').checked && $('tWave').checked){ S.t += dt; acc += dt; if (acc > 1/30){ acc = 0; drawWave(S.t); } } });
+const lamR = Lab.range('lam', v => v+' nm', v => { P.lam = v; update(); });
+Lab.range('d', v => v.toFixed(2)+' mm', v => { P.d = v; if (P.a >= v){ $('a').value = Math.max(0.02, v - 0.02); P.a = +$('a').value; $('ao').textContent = P.a.toFixed(3)+' mm'; } update(); });
+Lab.range('a', v => v.toFixed(3)+' mm', v => { P.a = Math.min(v, P.d - 0.01); update(); });
+Lab.range('L', v => v.toFixed(2)+' m', v => { P.L = v; update(); });
+document.querySelectorAll('[data-l]').forEach(b => b.addEventListener('click', () => lamR.set(+b.dataset.l)));
+$('tWave').addEventListener('change', () => drawWave(S.t));
+P.lam = +$('lam').value; P.d = +$('d').value; P.a = +$('a').value; P.L = +$('L').value;
+update();

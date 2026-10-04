@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>物理不愁人 · 网站部署说明</title>
+  <style>
+    :root{color-scheme:light dark;--bg:#f3f5f9;--card:#fff;--text:#182238;--muted:#556378;--line:#dce3ed;--accent:#385bd9}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:17px/1.85 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}main{max-width:820px;margin:auto;padding:32px 20px 64px}header{padding:12px 0 24px}h1{font-size:clamp(28px,7vw,40px);line-height:1.3;margin:8px 0 16px}h2{font-size:22px;line-height:1.5;margin:0 0 14px}.eyebrow{color:var(--accent);font-size:14px;letter-spacing:1px}.intro{color:var(--muted)}section{padding:24px;margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:18px}p{margin:12px 0}ul,ol{padding-left:24px;margin:12px 0}li{margin:10px 0}code{font-family:ui-monospace,monospace;font-size:.9em;overflow-wrap:anywhere;background:var(--bg);padding:2px 5px;border-radius:5px}.note{border-left:4px solid var(--accent);padding-left:14px;color:var(--muted)}footer{font-size:14px;color:var(--muted)}@media(max-width:480px){main{padding:20px 14px 40px}section{padding:20px 18px}}@media(prefers-color-scheme:dark){:root{--bg:#101624;--card:#192235;--text:#eef2fb;--muted:#b2bfd3;--line:#344058;--accent:#a0b4ff}}@media print{body{background:white;color:black}main{max-width:none;padding:0}section{break-inside:avoid;border-color:#ccc;background:white}code{background:#eee}.intro,footer,.note{color:#444}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">物理不愁人 · 交给 WorkBuddy 的部署说明</div>
+    <h1>把完整网站发布成<br>手机可分享的正式链接</h1>
+    <p class="intro">版本日期：2026 年 10 月 4 日。本文说明源码包的部署要求和验收标准；它不是“网站已经上线”的证明。</p>
+  </header>
+  <section>
+    <h2>一、直接交给 WorkBuddy 的任务</h2>
+    <p>请先阅读包内《交给WorkBuddy-部署任务.md》和《README-先读我.md》，部署完整版本的“物理不愁人”，交付一个能分享的正式 HTTPS 网址。首页、影片和实验应能在手机普通网络下访问，不需要 VPN 或 ChatGPT 账号。</p>
+    <p>优先沿用现有 WorkBuddy 项目或已授权的托管服务。不要把 localhost、局域网 IP 或不稳定的临时隧道当作最终交付。若需要登录、实名、账户授权、付费或更换主机，请明确说明需要用户完成的步骤；不要擅自购买、删除旧站或覆盖用户数据。</p>
+    <p class="note">大陆网络能否打开，必须在真实手机网络中验证；不能仅凭平台名称或网址格式保证。</p>
+  </section>
+  <section>
+    <h2>二、这些功能必须保留</h2>
+    <ul>
+      <li>电影感首页、4 部已上传影片、一个可自由切换的播放器；不再显示预留空位或“即将上线”卡片。</li>
+      <li>42 个物理专题、126 个基础知识条目、配图、公式、推导、搜索、收藏和高中／大学模式。</li>
+      <li>18 项 3D 实验：<code>physics-lab</code> 文件夹和 <code>lib/</code> 整体保留，不能拆散相对路径。</li>
+      <li>12 类题目参数驱动的三维实验，保留参数校验与适用条件；不要声称任意题目都能生成精确 3D 模型。</li>
+      <li>8 个大学数学模块、导数／积分交互工具、14 个专题的 28 段教材补充及资料来源书目。</li>
+      <li>文字／图片上传解题、千问服务端接口、题干核对、失败时保留题目、本站邮箱账号注册／登录。</li>
+    </ul>
+  </section>
+  <section>
+    <h2>三、部署步骤</h2>
+    <ol>
+      <li>先备份原站及数据库。此项目有后端和数据库，不是只上传 <code>index.html</code> 就能工作的纯静态站。</li>
+      <li>采用支持 <code>node:sqlite</code> 的 Node 22 环境，按锁文件安装依赖，执行 <code>npm run build</code>，使用 <code>node scripts/serve.mjs</code> 启动。包内也提供 Dockerfile。</li>
+      <li>设置 <code>HOST=0.0.0.0</code>、平台提供的 <code>PORT</code> 和真实 HTTPS <code>PUBLIC_ORIGIN</code>。数据库默认位于 <code>data/physics.sqlite</code>，必须使用持久存储和备份。</li>
+      <li>如改用其他后端或数据库，适配 <code>worker/</code> 的 API 与数据库语义。已有用户／会话时不要盲目重新建表，也不要用空库覆盖旧库。</li>
+      <li>千问 API Key 只配置在服务端秘密变量中，不写入前端、仓库或公开文件。新主机没有密钥时，通过秘密变量入口配置；模型名称与识图能力以供应商账号实际权限为准。</li>
+      <li>关闭生产环境设计预览模式，页面与账号／AI API 尽量同源，正确保护 Cookie、CSRF 和调用配额。邮件验证／密码找回需要真实发件服务，未配置时不能声称邮件已发出。</li>
+      <li>上传完整 <code>public/</code>，特别是 <code>public/media/</code>。媒体服务须正确支持 MP4、HEAD 和 Range／206；保留音轨、拖动及全屏，避免同时预加载全部影片。</li>
+      <li>保留本地字体、KaTeX、Three.js 和 Rapier WASM，检查相对路径、MIME 及资源安全策略，不要改回必须访问外部 CDN 才能工作的形式。</li>
+    </ol>
+  </section>
+  <section>
+    <h2>四、上线后必须验收</h2>
+    <ul>
+      <li>运行 <code>npm run build</code> 和 <code>npm test</code>（当前 16 组自动测试），如实标注未运行的检查。</li>
+      <li>使用真实手机分别测试普通 Wi-Fi、移动网络及微信内置浏览器；未取得相应设备／网络时，明确标注未验证。</li>
+      <li>首页无需 ChatGPT 账号；只有 4 张真实影片卡片；播放、切换、拖动正常，数学公式和交互工具正常。</li>
+      <li>18 项 3D 实验能加载和操作；资料来源包含新增教材；文字题、图片题以及适用题目的 3D 参数正常。</li>
+      <li>本站邮箱账号与会话正常；未配置邮件服务时提示准确；重新部署后用户数据库仍保留。</li>
+    </ul>
+    <p>最终请回复：真实 HTTPS 网站链接、部署平台、手机网络实测结果、尚未配置的功能，以及用户必须完成的最少步骤。</p>
+  </section>
+  <section>
+    <h2>五、GitHub 与安全交付</h2>
+    <p>可以把经过筛选的源码、媒体、依赖锁文件、部署脚本与说明上传至 GitHub。不要上传真实 API Key、私人环境配置、用户数据库、会话、<code>node_modules</code> 或教材扫描 PDF。保留第三方库的许可证及资料来源。</p>
+    <p>仓库公开或私有需由用户确认。源码仓库的网址不等于已部署的网站网址；即使使用静态页面托管，本站的账号与 AI 接口仍需可运行的后端。</p>
+    <p>源码包内的 <code>文件清单.sha256</code> 可用于核对原始交付包完整性；后续修改文件时需同步更新清单。</p>
+  </section>
+  <footer>本说明不含真实密钥或用户信息。正式公开链接须在发布后提供，并与本地文件地址区分。</footer>
+</main>
+</body>
+</html>

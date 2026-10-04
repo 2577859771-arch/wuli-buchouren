@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>布朗运动 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="布朗运动三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>布朗运动</h1>
+      <p>看不见的分子撞击，让看得见的微粒做无规则运动</p>
+      <span class="engine ok" id="engine">硬球碰撞 · 步长 1/240</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i></span><span id="h-t">0.0</span><span class="th">—</span>
+      <span class="k">微粒动能（时间平均）</span><span id="h-K">—</span><span class="th" id="h-Kt">—</span>
+      <span class="k">累计碰撞次数</span><span id="h-c">0</span><span class="th">—</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--ball)"></span>布朗微粒（质量 <i class="v">M</i>）</div>
+      <div><span class="sw" style="background:var(--ghost)"></span>液体分子（质量 1）</div>
+      <div><span class="sw bar" style="background:var(--ball)"></span>微粒的轨迹</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="M">微粒质量 <i class="v">M</i></label><input type="range" id="M" min="5" max="60" step="5" value="20"><output id="Mo"></output></div>
+      <div class="row"><label for="T">温度 <i class="v">T</i></label><input type="range" id="T" min="0.5" max="4" step="0.1" value="2"><output id="To"></output></div>
+      <div class="row"><label for="N">分子数</label><input type="range" id="N" min="300" max="1500" step="100" value="1000"><output id="No"></output></div>
+      <div class="row"><label for="K">微粒个数</label><input type="range" id="K" min="1" max="8" step="1" value="6"><output id="Ko"></output></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">开始</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tMol" checked>显示分子</label>
+        <label><input type="checkbox" id="tTrail" checked>微粒轨迹</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">关掉「显示分子」，就是显微镜下看到的样子：只见微粒乱动，看不见推动它的分子。微粒从静止开始，靠分子的撞击逐渐获得动能。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq">能量均分：‾½<i class="v">MV</i>²‾ = ‾½<i class="v">mv</i>²‾ = 3⁄2 <i class="v">kT</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">V</i>rms = √(3<i class="v">kT</i>⁄<i class="v">M</i>)</div><div class="sub">微粒越重，热运动速度越小；温度越高，运动越剧烈</div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>微粒平均动能</td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td>分子平均动能</td><td id="t2">—</td><td id="s2">—</td><td id="e2">—</td></tr>
+          <tr><td>微粒方均根速率</td><td id="t3">—</td><td id="s3">—</td><td id="e3">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note">微粒的平均动能取 <i class="v">t</i> &gt; 5 之后、对所有微粒的时间平均。单个微粒的动能涨落很大，统计的微粒越多、时间越长，越接近理论值；只放 1 个微粒时误差会大得多。</p>
+    </section>
+    <section>
+      <h2>微粒动能的累计平均</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ball)"></span>仿真</span><span><span class="sw bar" style="background:var(--theory)"></span>3⁄2 <i class="v">kT</i>（虚线）</span></div>
+    </section>
+  </aside>
+</div>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+$('fitBtn').addEventListener('click', () => stage.goHome());
+Lab.bindShadow(stage, 'tShadow');
+const W = 6, r = 0.05, RB = 0.55, DT = 1/240, T0 = 5;
+const P = {M:20, T:2, N:1000, K:6, speed:2};
+const S = {t:0, x:null, v:null, X:[], V:[], kSum:0, kT:0, v2Sum:0, hits:0};
+const pl = Lab.player($('goBtn'));
+const mats = { wall: Lab.themed(new THREE.MeshStandardMaterial({transparent:true, opacity:0.06, side:THREE.DoubleSide, depthWrite:false}), '--ink-2'),
+  edge: Lab.lineMat('--ink-2'), mol: Lab.std('--ghost', {transparent:true, opacity:0.5}), big: Lab.std('--ball', {roughness:0.5}), trail: Lab.lineMat('--ball', {transparent:true, opacity:0.8}) };
+Lab.floor(scene, 16, 16, -0.02);
+const box = new THREE.Mesh(new THREE.BoxGeometry(W, W, W), mats.wall); box.position.y = W/2; scene.add(box);
+const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W, W, W)), mats.edge); edges.position.y = W/2; scene.add(edges);
+const MAXN = 1500, mols = new THREE.InstancedMesh(new THREE.SphereGeometry(r, 8, 6), mats.mol, MAXN); scene.add(mols);
+const bigs = [], trails = [];
+for (let k=0;k<8;k++){ const b = new THREE.Mesh(new THREE.SphereGeometry(RB, 32, 20), mats.big); b.castShadow = true; scene.add(b); bigs.push(b);
+  const t = Lab.polyline(mats.trail, 3000); t.position.set(-W/2, 0, -W/2); scene.add(t); trails.push(t); }
+const chart = Lab.Chart($('chart'), {xLabel:'t', series:[{color:'--ball', width:2}, {color:'--theory', dash:true}]});
+stage.setHome(new THREE.Vector3(0, W/2, 0), new THREE.Vector3(7, 7.5, 10));
+stage.overheadLight(0, 0, 5, W);
+const tmp = new THREE.Object3D();
+function gauss(){ let u = 0; while (!u) u = Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); }
+function free(p, rad){ return S.X.every(X => X.distanceTo(p) > RB + rad + 0.05); }
+function reset(){
+  const N = P.N; S.t = 0; S.x = new Float32Array(N*3); S.v = new Float32Array(N*3); S.kSum = 0; S.kT = 0; S.v2Sum = 0; S.hits = 0;
+  S.X = []; S.V = [];
+  for (let k=0;k<P.K;k++){ let p; do { p = new THREE.Vector3(RB + Math.random()*(W - 2*RB), RB + Math.random()*(W - 2*RB), RB + Math.random()*(W - 2*RB)); } while (!free(p, RB)); S.X.push(p); S.V.push(new THREE.Vector3()); }
+  const q = new THREE.Vector3();
+  for (let i=0;i<N;i++){
+    do { q.set(Math.random()*W, Math.random()*W, Math.random()*W); } while (!free(q, r));
+    S.x[i*3] = q.x; S.x[i*3+1] = q.y; S.x[i*3+2] = q.z;
+    const s = Math.sqrt(P.T); for (let a=0;a<3;a++) S.v[i*3+a] = gauss()*s;
+  }
+  let e = 0; for (let i=0;i<N*3;i++) e += S.v[i]*S.v[i]; const f = Math.sqrt(3*N*P.T/e); for (let i=0;i<N*3;i++) S.v[i] *= f;
+  trails.forEach(t => t.clear()); bigs.forEach((b, k) => b.visible = k < P.K);
+  chart.clear(); chart.setXMax(80); chart.setYRange(0, 3*P.T); chart.push(1, 0, 1.5*P.T); chart.push(1, 80, 1.5*P.T); chart.draw();
+  pl.set('idle'); stats(); view();
+}
+pl.onRestart = reset;
+function step(){
+  const N = P.N, x = S.x, v = S.v, M = P.M, d2 = (RB + r)**2;
+  for (let i=0;i<N;i++) for (let a=0;a<3;a++){ const k = i*3+a; x[k] += v[k]*DT; if (x[k] < 0){ x[k] = -x[k]; v[k] = -v[k]; } else if (x[k] > W){ x[k] = 2*W - x[k]; v[k] = -v[k]; } }
+  for (let k=0;k<P.K;k++){
+    const X = S.X[k], V = S.V[k];
+    X.addScaledVector(V, DT);
+    ['x','y','z'].forEach(a => { if (X[a] < RB){ X[a] = 2*RB - X[a]; V[a] = -V[a]; } else if (X[a] > W - RB){ X[a] = 2*(W - RB) - X[a]; V[a] = -V[a]; } });
+    for (let i=0;i<N;i++){
+      const ix = i*3, dx = x[ix]-X.x; if (dx > RB + r || dx < -RB - r) continue;
+      const dy = x[ix+1]-X.y, dz = x[ix+2]-X.z, q = dx*dx+dy*dy+dz*dz;
+      if (q < d2){
+        const dvx = v[ix]-V.x, dvy = v[ix+1]-V.y, dvz = v[ix+2]-V.z, dot = dvx*dx+dvy*dy+dvz*dz;
+        if (dot < 0){ const j = 2*dot/(q*(1 + 1/M)); v[ix] -= j*dx; v[ix+1] -= j*dy; v[ix+2] -= j*dz; V.x += j*dx/M; V.y += j*dy/M; V.z += j*dz/M; S.hits++; }
+      }
+    }
+  }
+  S.t += DT;
+  if (S.t > T0){ let k2 = 0; S.V.forEach(V => k2 += V.lengthSq()); k2 /= P.K; S.kSum += 0.5*M*k2*DT; S.v2Sum += k2*DT; S.kT += DT; }
+  const n = Math.round(S.t/DT);
+  if (n % 6 === 0) S.X.forEach((X, k) => trails[k].push(X));
+  if (n % 60 === 0 && S.kT > 0.5 && S.t <= 80) chart.push(0, S.t, S.kSum/S.kT);
+}
+const drive = Lab.stepper(DT, step);
+function stats(){
+  const K = 1.5*P.T, Kp = S.kT > 0 ? S.kSum/S.kT : null;
+  let e = 0; for (let i=0;i<P.N*3;i++) e += S.v[i]*S.v[i]; const km = 0.5*e/P.N;
+  Lab.text('f1', `T = ${P.T} ⇒ 3/2 kT = ${K.toFixed(4)}，与微粒质量 M = ${P.M} 无关`);
+  Lab.text('t1', K.toFixed(4)); Lab.text('s1', Kp === null ? `t > ${T0} 后开始统计` : Kp.toFixed(4)); Lab.text('e1', Kp === null ? '—' : Lab.relErr(K, Kp));
+  Lab.text('t2', K.toFixed(4)); Lab.text('s2', km.toFixed(4)); Lab.text('e2', Lab.relErr(K, km));
+  const vr = Math.sqrt(3*P.T/P.M), vs = S.kT > 0 ? Math.sqrt(S.v2Sum/S.kT) : null;
+  Lab.text('t3', vr.toFixed(4)); Lab.text('s3', vs === null ? '—' : vs.toFixed(4)); Lab.text('e3', vs === null ? '—' : Lab.relErr(vr, vs));
+  Lab.text('h-t', S.t.toFixed(1)); Lab.text('h-K', Kp === null ? '统计中' : Kp.toFixed(3)); Lab.text('h-Kt', K.toFixed(3)); Lab.text('h-c', String(S.hits));
+}
+function view(){
+  const on = $('tMol').checked; mols.visible = on;
+  if (on){ for (let i=0;i<P.N;i++){ tmp.position.set(S.x[i*3] - W/2, S.x[i*3+1], S.x[i*3+2] - W/2); tmp.updateMatrix(); mols.setMatrixAt(i, tmp.matrix); }
+    mols.count = P.N; mols.instanceMatrix.needsUpdate = true; }
+  S.X.forEach((X, k) => bigs[k].position.set(X.x - W/2, X.y, X.z - W/2));
+  const tOn = $('tTrail').checked; trails.forEach((t, k) => t.visible = tOn && k < P.K);
+}
+let acc = 0;
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, P.speed); view(); acc += dt; if (acc > 0.25){ acc = 0; stats(); chart.draw(); } } });
+Lab.range('M', v => v, v => { P.M = v; reset(); });
+Lab.range('T', v => v.toFixed(1), v => { P.T = v; reset(); });
+Lab.range('N', v => v, v => { P.N = v; reset(); });
+Lab.range('K', v => v, v => { P.K = v; reset(); });
+['M','T','N','K'].forEach(k => P[k] = +$(k).value); P.speed = +$('speed').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('resetBtn').addEventListener('click', reset);
+['tMol','tTrail'].forEach(id => $(id).addEventListener('change', view));
+reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>斜面上的物块 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="斜面物块三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>斜面上的物块</h1>
+      <p>重力分解、静摩擦与滑动摩擦</p>
+      <span class="engine ok">数值积分 · 步长 1/1000 s</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i> / s</span><span id="h-t">0.000</span><span class="th" id="h-st">静止</span>
+      <span class="k"><i class="v">s</i> / m</span><span id="h-s">0.000</span><span class="th" id="h-sth">0.000</span>
+      <span class="k"><i class="v">v</i> / m·s⁻¹</span><span id="h-v">0.000</span><span class="th" id="h-vth">0.000</span>
+      <span class="k"><i class="v">a</i> / m·s⁻²</span><span id="h-a">0.000</span><span class="th" id="h-ath">0.000</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw bar" style="background:var(--f-g)"></span>重力 <i class="v">G</i> 及其分力</div>
+      <div><span class="sw bar" style="background:var(--f-n)"></span>支持力 <i class="v">N</i></div>
+      <div><span class="sw bar" style="background:var(--f-f)"></span>摩擦力 <i class="v">f</i></div>
+      <div><span class="sw bar" style="background:var(--f-net)"></span>合力 <i class="v">F</i>合</div>
+      <div><span class="sw" style="background:var(--ghost)"></span>频闪位置</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="th">倾角 <i class="v">θ</i></label><input type="range" id="th" min="5" max="60" step="1" value="30"><output id="tho"></output></div>
+      <div class="row"><label for="ms">静摩擦 <i class="v">μ</i>ₛ</label><input type="range" id="ms" min="0" max="1" step="0.01" value="0.3"><output id="mso"></output></div>
+      <div class="row"><label for="mk">动摩擦 <i class="v">μ</i></label><input type="range" id="mk" min="0" max="1" step="0.01" value="0.2"><output id="mko"></output></div>
+      <div class="row"><label for="v0">上冲初速</label><input type="range" id="v0" min="0" max="7" step="0.1" value="0"><output id="v0o"></output></div>
+      <div class="row"><label for="m">质量 <i class="v">m</i></label><input type="range" id="m" min="0.2" max="5" step="0.1" value="1"><output id="mo"></output></div>
+      <div class="row"><label for="dt">频闪间隔</label>
+        <select id="dt"><option value="0.1">0.10 s</option><option value="0.2" selected>0.20 s</option></select><span></span></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1">1×</option><option value="0.5" selected>0.5×</option><option value="0.25">0.25×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">释放</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tForce" checked>受力分析</label>
+        <label><input type="checkbox" id="tComp" checked>分解重力</label>
+        <label><input type="checkbox" id="tGhost" checked>频闪物块</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">上冲初速为 0 时物块从斜面顶端释放；大于 0 时从底端沿斜面向上推出。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">G</i><sub>∥</sub> = <i class="v">mg</i> sin<i class="v">θ</i>，<i class="v">N</i> = <i class="v">mg</i> cos<i class="v">θ</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq">能否下滑：tan<i class="v">θ</i> &gt; <i class="v">μ</i>ₛ</div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq"><i class="v">a</i>下 = <i class="v">g</i>(sin<i class="v">θ</i> − <i class="v">μ</i> cos<i class="v">θ</i>)</div><div class="sub" id="f3"></div></div>
+      <div class="f"><div class="eq"><i class="v">a</i>上 = <i class="v">g</i>(sin<i class="v">θ</i> + <i class="v">μ</i> cos<i class="v">θ</i>)（上冲减速）</div><div class="sub" id="f4"></div></div>
+      <p class="note">加速度与质量无关：改变 <i class="v">m</i> 只会让所有力等比例变化。</p>
+    </section>
+    <section>
+      <h2>频闪记录与逐差法</h2>
+      <div class="tablewrap">
+        <table class="cmp">
+          <thead><tr><th>#</th><th><i class="v">t</i></th><th><i class="v">s</i> 仿真</th><th><i class="v">s</i> 理论</th><th>Δ<i class="v">s</i></th><th>Δ<i class="v">s</i> 之差</th></tr></thead>
+          <tbody id="tb"><tr><td colspan="6" class="empty">点击「释放」开始记录</td></tr></tbody>
+        </table>
+      </div>
+      <p class="note" id="zc">匀变速直线运动中，相邻相等时间间隔内的位移差恒为 <i class="v">a</i><i class="v">T</i>²。</p>
+    </section>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const DT = 1/1000, DEG = Math.PI/180, G = 9.8, LS = 4, BS = 0.3;
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+
+const P = {th:30, ms:0.3, mk:0.2, v0:0, m:1, dt:0.2, speed:0.5};
+Lab.applyQuestion(P);
+const S = {phase:'idle', t:0, s:0, v:0, a:0, steps:0, strobes:[], stuck:false, end:null};
+
+const mats = {
+  wedge: Lab.std('--wall', {roughness:0.9}), block: Lab.std('--ball', {roughness:0.45}),
+  ghost: Lab.std('--ghost', {transparent:true, opacity:0.32}), floor: Lab.std('--wall', {roughness:1}),
+  edge: Lab.lineMat('--ink-2'), arc: Lab.lineMat('--ink-2')
+};
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 10), mats.floor); floor.rotation.x = -Math.PI/2; floor.position.y = -0.001; floor.receiveShadow = true; scene.add(floor);
+const fg = Lab.grid(10, 6, 0.5); fg.rotation.x = -Math.PI/2; fg.position.set(-2, 0, 3); scene.add(fg);
+const rig = new THREE.Group(); scene.add(rig);
+const ghosts = new THREE.Group(); scene.add(ghosts);
+const blockGeo = new THREE.BoxGeometry(BS, BS, BS*1.4);
+const block = new THREE.Mesh(blockGeo, mats.block); block.castShadow = true; scene.add(block);
+const ar = {
+  G: Lab.arrow('--f-g', 0.08), Gp: Lab.arrow('--f-g', 0.06), Gn: Lab.arrow('--f-g', 0.06),
+  N: Lab.arrow('--f-n', 0.08), f: Lab.arrow('--f-f', 0.08), net: Lab.arrow('--f-net', 0.08)
+};
+Object.values(ar).forEach(a => scene.add(a));
+[ar.Gp, ar.Gn].forEach(a => { a.line.material.transparent = true; a.line.material.opacity = 0.55; });
+
+let top = new THREE.Vector3(), d = new THREE.Vector3(), n = new THREE.Vector3();
+function geomInfo(){
+  const t = P.th*DEG;
+  d.set(Math.cos(t), -Math.sin(t), 0); n.set(Math.sin(t), Math.cos(t), 0);
+  top.set(0, LS*Math.sin(t), 0);
+}
+function build(){
+  while (rig.children.length){ const o = rig.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  geomInfo();
+  const t = P.th*DEG, Lb = LS*Math.cos(t), H = LS*Math.sin(t);
+  const sh = new THREE.Shape(); sh.moveTo(0,0); sh.lineTo(Lb,0); sh.lineTo(0,H); sh.closePath();
+  const eg = new THREE.ExtrudeGeometry(sh, {depth:1, bevelEnabled:false}); eg.translate(0,0,-0.5);
+  const w = new THREE.Mesh(eg, mats.wedge); w.receiveShadow = true; w.castShadow = true; rig.add(w);
+  rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(eg), mats.edge));
+  // 斜面刻度：每 0.5 m
+  const tk = [];
+  for (let s=0; s<=LS+1e-6; s+=0.5){ const p = top.clone().addScaledVector(d, s); tk.push(p.x, p.y, 0.5, p.x + n.x*0.06, p.y + n.y*0.06, 0.5); }
+  const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(tk, 3));
+  rig.add(new THREE.LineSegments(tg, mats.edge));
+  // 倾角弧
+  const ap = []; const r = 0.6;
+  for (let i=0;i<=30;i++){ const a = Math.PI - t*i/30; ap.push(new THREE.Vector3(Lb + r*Math.cos(a), r*Math.sin(a), 0.502)); }
+  rig.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ap), mats.arc));
+  const lab = Lab.label(`θ = ${P.th}°`, '--ink', 0.16); lab.position.set(Lb - r - 0.55, 0.12, 0.52); rig.add(lab);
+  stage.overheadLight(Lb/2, 0, Math.max(Lb, H)/2 + 1.5, H + 1);
+}
+function fit(){
+  const t = P.th*DEG, Lb = LS*Math.cos(t), H = LS*Math.sin(t), D = Math.max(Lb, H)*1.35 + 2.4;
+  stage.setHome(new THREE.Vector3(Lb/2, H*0.45, 0), new THREE.Vector3(Lb/2 + D*0.25, H*0.45 + D*0.3, D));
+}
+function blockPose(s){ return top.clone().addScaledVector(d, s).addScaledVector(n, BS/2); }
+
+/* 解析解（分段） */
+function startS(){ return P.v0 > 0 ? LS - BS/2 - 0.02 : BS/2 + 0.02; }
+function theory(t){
+  const th = P.th*DEG, s0 = startS();
+  const aUp = G*(Math.sin(th) + P.mk*Math.cos(th));
+  const slides = Math.tan(th) > P.ms;
+  const aDn = slides ? G*(Math.sin(th) - P.mk*Math.cos(th)) : 0;
+  // 约定沿斜面向下为正
+  if (P.v0 > 0){
+    const t1 = P.v0/aUp, s1 = s0 - P.v0*P.v0/(2*aUp);
+    if (t <= t1) return {s: s0 - P.v0*t + 0.5*aUp*t*t, v: -P.v0 + aUp*t, a: aUp};
+    const tt = t - t1; return {s: s1 + 0.5*aDn*tt*tt, v: aDn*tt, a: aDn};
+  }
+  return {s: s0 + 0.5*aDn*t*t, v: aDn*t, a: aDn};
+}
+function forces(){
+  const th = P.th*DEG, mg = P.m*G, Gp = mg*Math.sin(th), Nn = mg*Math.cos(th);
+  let f; // 沿斜面向下为正
+  if (Math.abs(S.v) < 1e-9){
+    f = Gp <= P.ms*Nn ? -Gp : -P.mk*Nn;
+  } else f = -Math.sign(S.v)*P.mk*Nn;
+  return {mg, Gp, Nn, f, net: Gp + f};
+}
+function step(){
+  const fs = forces();
+  const vPrev = S.v;
+  let a = fs.net / P.m;
+  let v = S.v + a*DT;
+  // 上冲时速度过零：在零点停下并重新判断静摩擦
+  if (vPrev < 0 && v >= 0){
+    const tau = -vPrev / a; S.s += vPrev*tau + 0.5*a*tau*tau; S.v = 0;
+    const th = P.th*DEG;
+    if (Math.tan(th) > P.ms){ const a2 = G*(Math.sin(th) - P.mk*Math.cos(th)); const r = DT - tau; S.s += 0.5*a2*r*r; S.v = a2*r; S.a = a2; }
+    else { S.a = 0; S.stuck = true; }
+  } else {
+    S.s += (S.v + v)/2*DT; S.v = v; S.a = a;
+  }
+  S.t += DT; S.steps++;
+  if (S.steps % Math.round(P.dt/DT) === 0) addStrobe();
+  if (S.s >= LS - BS/2){ S.s = LS - BS/2; finish('到达底端'); return false; }
+  if (S.s <= BS/2 && S.v < 0){ S.s = BS/2; finish('到达顶端'); return false; }
+  if (S.v === 0 && S.a === 0 && !(Math.tan(P.th*DEG) > P.ms)){ S.stuck = true; finish('静止在斜面上'); return false; }
+}
+const drive = Lab.stepper(DT, step);
+function finish(msg){ S.phase = 'done'; S.end = msg; $('goBtn').textContent = '再次释放'; $('h-st').textContent = msg; }
+
+function addStrobe(){
+  const i = S.strobes.length, th = theory(S.t);
+  S.strobes.push({t:S.t, s:S.s});
+  const g = new THREE.Mesh(blockGeo, mats.ghost); g.position.copy(blockPose(S.s)); g.rotation.z = -P.th*DEG; ghosts.add(g);
+  const tb = $('tb'); if (i === 0) tb.innerHTML = '';
+  const ds = i>0 ? S.strobes[i].s - S.strobes[i-1].s : null;
+  const dsp = i>1 ? S.strobes[i-1].s - S.strobes[i-2].s : null;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${i}</td><td>${S.t.toFixed(2)}</td><td>${S.s.toFixed(4)}</td><td>${th.s.toFixed(4)}</td><td>${ds===null?'—':ds.toFixed(4)}</td><td>${dsp===null?'—':(ds-dsp).toFixed(4)}</td>`;
+  tb.appendChild(tr); tr.scrollIntoView({block:'nearest'});
+  if (i >= 2){
+    const aEst = (ds - dsp)/(P.dt*P.dt);
+    $('zc').innerHTML = `逐差法：<i class="v">a</i> = Δ<i class="v">s</i> 之差 ⁄ <i class="v">T</i>² = ${(ds-dsp).toFixed(4)} ⁄ ${P.dt}² ≈ ${aEst.toFixed(3)} m/s²，理论 ${th.a.toFixed(3)} m/s²。`;
+  }
+}
+
+function reset(refit){
+  S.phase = 'idle'; S.t = 0; S.steps = 0; S.s = startS(); S.v = P.v0 > 0 ? -P.v0 : 0; S.a = theory(0).a; S.strobes = []; S.stuck = false; S.end = null;
+  while (ghosts.children.length) ghosts.children.pop();
+  $('tb').innerHTML = '<tr><td colspan="6" class="empty">点击「释放」开始记录</td></tr>';
+  $('zc').innerHTML = '匀变速直线运动中，相邻相等时间间隔内的位移差恒为 <i class="v">a</i><i class="v">T</i>²。';
+  build(); if (refit) fit();
+  $('goBtn').textContent = '释放'; $('h-st').textContent = '—';
+  updateFormulas(); updateView();
+}
+function updateFormulas(){
+  const th = P.th*DEG, mg = P.m*G;
+  $('f1').textContent = `G∥ = ${(mg*Math.sin(th)).toFixed(3)} N，N = ${(mg*Math.cos(th)).toFixed(3)} N，最大静摩擦 ${(P.ms*mg*Math.cos(th)).toFixed(3)} N`;
+  const slides = Math.tan(th) > P.ms;
+  $('f2').textContent = `tan ${P.th}° = ${Math.tan(th).toFixed(3)}，μₛ = ${P.ms.toFixed(2)}，${slides ? '会下滑' : '能静止（静摩擦平衡 G∥）'}`;
+  $('f3').textContent = slides ? `a下 = ${(G*(Math.sin(th) - P.mk*Math.cos(th))).toFixed(4)} m/s²` : '不下滑，a = 0';
+  const aUp = G*(Math.sin(th) + P.mk*Math.cos(th));
+  $('f4').textContent = P.v0 > 0 ? `a上 = ${aUp.toFixed(4)} m/s²，上滑时间 ${(P.v0/aUp).toFixed(4)} s，上滑距离 ${(P.v0*P.v0/(2*aUp)).toFixed(4)} m` : '上冲初速为 0，此阶段不存在';
+}
+function updateView(){
+  const p = blockPose(S.s); block.position.copy(p); block.rotation.z = -P.th*DEG;
+  ghosts.visible = $('tGhost').checked;
+  const fs = forces(), k = 0.9/(fs.mg), on = $('tForce').checked, comp = on && $('tComp').checked;
+  const c = p.clone().add(new THREE.Vector3(0,0,BS*0.75));
+  ar.G.show(c, new THREE.Vector3(0, -fs.mg, 0), k, on);
+  ar.Gp.show(c, d.clone().multiplyScalar(fs.Gp), k, comp);
+  ar.Gn.show(c, n.clone().multiplyScalar(-fs.Nn), k, comp);
+  ar.N.show(c, n.clone().multiplyScalar(fs.Nn), k, on);
+  const fv = (S.phase === 'idle' && P.v0 === 0) ? forces().f : fs.f;
+  ar.f.show(c.clone().addScaledVector(n, -BS*0.45), d.clone().multiplyScalar(fv), k, on);
+  ar.net.show(c.clone().addScaledVector(n, BS*0.9), d.clone().multiplyScalar(fs.net), k, on && Math.abs(fs.net) > 1e-6);
+  const th = theory(S.t);
+  $('h-t').textContent = S.t.toFixed(3);
+  $('h-s').textContent = Lab.f(S.s - startS()); $('h-sth').textContent = Lab.f(th.s - startS());
+  $('h-v').textContent = Lab.f(S.v); $('h-vth').textContent = Lab.f(th.v);
+  $('h-a').textContent = Lab.f(S.a); $('h-ath').textContent = Lab.f(th.a);
+}
+
+stage.onFrame(dt => { if (S.phase === 'run'){ drive(dt, P.speed); updateView(); } });
+
+Lab.range('th', v => v+'°', v => { P.th = v; reset(true); });
+const msR = Lab.range('ms', v => v.toFixed(2), v => { P.ms = v; if (P.mk > v) mkR.set(v); else reset(false); });
+const mkR = Lab.range('mk', v => v.toFixed(2), v => { P.mk = v; if (v > P.ms) msR.set(v); else reset(false); });
+Lab.range('v0', v => v.toFixed(1)+' m/s', v => { P.v0 = v; reset(false); });
+Lab.range('m', v => v.toFixed(1)+' kg', v => { P.m = v; reset(false); });
+P.th = +$('th').value; P.ms = +$('ms').value; P.mk = +$('mk').value; P.v0 = +$('v0').value; P.m = +$('m').value;
+P.dt = +$('dt').value; P.speed = +$('speed').value;
+$('dt').addEventListener('change', e => { P.dt = +e.target.value; reset(false); });
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('goBtn').addEventListener('click', () => {
+  if (S.phase === 'done') reset(false);
+  if (S.phase === 'idle'){ S.phase = 'run'; addStrobe(); $('goBtn').textContent = '暂停'; $('h-st').textContent = '运动中'; }
+  else if (S.phase === 'run'){ S.phase = 'pause'; $('goBtn').textContent = '继续'; }
+  else { S.phase = 'run'; $('goBtn').textContent = '暂停'; }
+});
+$('resetBtn').addEventListener('click', () => reset(false));
+$('fitBtn').addEventListener('click', () => stage.goHome());
+['tForce','tComp','tGhost'].forEach(id => $(id).addEventListener('change', updateView));
+$('tShadow').addEventListener('change', e => { stage.renderer.shadowMap.enabled = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); });
+reset(true);
+})();
+</script>
+</body>
+</html>

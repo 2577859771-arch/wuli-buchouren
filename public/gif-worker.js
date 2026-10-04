@@ -1,0 +1,3 @@
+import {GIFEncoder,quantize,applyPalette} from './gifenc.js';
+let encoder,palette;
+self.onmessage=({data})=>{try{if(data.type==='start'){encoder=GIFEncoder();palette=null;self.postMessage({type:'ready'});}if(data.type==='frame'){const rgba=new Uint8Array(data.buffer);if(!palette)palette=quantize(rgba,256);const indexed=applyPalette(rgba,palette);encoder.writeFrame(indexed,data.width,data.height,{palette,delay:data.delay,repeat:0});self.postMessage({type:'frame-done'});}if(data.type==='finish'){encoder.finish();const result=encoder.bytes();self.postMessage({type:'result',buffer:result.buffer},[result.buffer]);}}catch(e){self.postMessage({type:'error',message:'GIF 编码失败，请重试或减少分辨率。'});}};

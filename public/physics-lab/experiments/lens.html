@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>透镜成像 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="透镜成像三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>透镜成像</h1>
+      <p>三条特殊光线、成像公式与光屏上的像 · 长度读数 ×10 cm</p>
+      <span class="engine ok" id="engine">几何光线追迹</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">光线交点</span><span class="th">公式</span>
+      <span class="k">像距 <i class="v">v</i></span><span id="h-v">—</span><span class="th" id="h-vt">—</span>
+      <span class="k">放大率 <i class="v">m</i></span><span id="h-m">—</span><span class="th" id="h-mt">—</span>
+      <span class="k">像的性质</span><span id="h-k" style="grid-column:span 2">—</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw bar" style="background:var(--f-g)"></span>平行于主光轴的光线</div>
+      <div><span class="sw bar" style="background:var(--ghost)"></span>过光心的光线</div>
+      <div><span class="sw bar" style="background:var(--ground)"></span>过焦点的光线</div>
+      <div><span class="sw bar" style="background:var(--theory)"></span>反向延长线（虚像）</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="btns" role="group" aria-label="透镜类型">
+        <button class="chip" id="kV" aria-pressed="true">凸透镜</button><button class="chip" id="kC" aria-pressed="false">凹透镜</button>
+      </div>
+      <div class="row"><label for="f">焦距 |<i class="v">f</i>|</label><input type="range" id="f" min="0.6" max="2.5" step="0.05" value="1.5"><output id="fo"></output></div>
+      <div class="row"><label for="u">物距 <i class="v">u</i></label><input type="range" id="u" min="0.3" max="6" step="0.05" value="4"><output id="uo"></output></div>
+      <div class="row"><label for="hh">物高</label><input type="range" id="hh" min="0.3" max="0.8" step="0.05" value="0.6"><output id="hho"></output></div>
+      <div class="btns" role="group" aria-label="物距预设">
+        <button class="chip" data-u="2.6">u &gt; 2f</button><button class="chip" data-u="2">u = 2f</button><button class="chip" data-u="1.4">f &lt; u &lt; 2f</button><button class="chip" data-u="0.6">u &lt; f</button>
+      </div>
+      <div class="row"><label for="s">光屏位置</label><input type="range" id="s" min="0.5" max="9" step="0.05" value="2.4"><output id="so"></output></div>
+      <div class="btns"><button class="primary" id="focusBtn">把光屏移到像的位置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tRays" checked>特殊光线</label>
+        <label><input type="checkbox" id="tShadow">实时阴影</label>
+      </div>
+    </section>
+    <section>
+      <h2>光屏</h2>
+      <canvas id="scr" width="320" height="200" style="width:100%;border:1px solid var(--line);border-radius:4px;background:#111"></canvas>
+      <p class="note" id="scrNote"></p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq">1⁄<i class="v">u</i> + 1⁄<i class="v">v</i> = 1⁄<i class="v">f</i></div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">m</i> = −<i class="v">v</i> ⁄ <i class="v">u</i></div><div class="sub">取实像距为正、虚像距为负；m &lt; 0 表示倒立</div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>公式</th><th>光线交点</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>像距 <i class="v">v</i></td><td id="t1">—</td><td id="s1">—</td><td id="e1">—</td></tr>
+          <tr><td>像高</td><td id="t2">—</td><td id="s2">—</td><td id="e2">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </aside>
+</div>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+$('fitBtn').addEventListener('click', () => stage.goHome());
+Lab.bindShadow(stage, 'tShadow');
+const P = {kind:1, f:1.5, u:4, h:0.6, s:2.4, D:1.8};
+Lab.applyQuestion(P);
+const mats = { bench: Lab.std('--ink-2', {roughness:0.5, metalness:0.3}), obj: Lab.std('--ball', {roughness:0.4}),
+  img: Lab.std('--ball', {roughness:0.4, transparent:true, opacity:0.95}), lens: Lab.themed(new THREE.MeshStandardMaterial({transparent:true, opacity:0.35, roughness:0.05, depthWrite:false, side:THREE.DoubleSide}), '--ghost'),
+  axis: Lab.dashMat('--theory', {dashSize:0.12, gapSize:0.08}), ext: Lab.dashMat('--theory', {dashSize:0.08, gapSize:0.06}), scr: Lab.std('--paper', {roughness:1}), f: Lab.basic('--ink') };
+Lab.floor(scene, 22, 8, -1.1);
+const bench = new THREE.Mesh(new THREE.BoxGeometry(17, 0.12, 0.4), mats.bench); bench.position.set(1.5, -0.95, 0); bench.castShadow = true; scene.add(bench);
+const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-7, 0, 0), new THREE.Vector3(10, 0, 0)]), mats.axis); axis.computeLineDistances(); scene.add(axis);
+const lensG = new THREE.Group(); scene.add(lensG);
+const fG = new THREE.Group(); scene.add(fG);
+function arrowObj(mat){ const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 12), mat); s.position.y = 0.5; const c = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 16), mat); c.position.y = 1; g.add(s, c); g.shaft = s; g.cone = c; scene.add(g); return g; }
+function setArrow(g, x, h){ const a = Math.abs(h); g.position.set(x, 0, 0); g.scale.set(1, 1, 1); g.shaft.scale.y = Math.max(0.01, a - 0.12); g.shaft.position.y = (a - 0.12)/2; g.cone.position.y = a - 0.1; g.rotation.z = h < 0 ? Math.PI : 0; g.visible = a > 1e-3; }
+const obj = arrowObj(mats.obj), img = arrowObj(mats.img);
+const post = (x) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8), mats.bench); p.position.set(x, -0.45, 0); scene.add(p); return p; };
+const objPost = post(0), lensPost = post(0), scrPost = post(0);
+// 光屏
+const scrCv = $('scr'), sctx = scrCv.getContext('2d');
+const stex = new THREE.CanvasTexture(scrCv);
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.375), new THREE.MeshBasicMaterial({map:stex, side:THREE.DoubleSide})); screen.rotation.y = -Math.PI/2; scene.add(screen);
+const rays = [Lab.beam(Lab.col('--f-g'), 0.009), Lab.beam(Lab.col('--ghost'), 0.009), Lab.beam(Lab.col('--ground'), 0.009)];
+const raysOut = [Lab.beam(Lab.col('--f-g'), 0.009), Lab.beam(Lab.col('--ghost'), 0.009), Lab.beam(Lab.col('--ground'), 0.009)];
+rays.concat(raysOut).forEach(r => scene.add(r));
+Lab.onTheme(() => { ['--f-g','--ghost','--ground'].forEach((v, i) => { rays[i].material.color = Lab.col(v); raysOut[i].material.color = Lab.col(v); }); });
+const extSeg = new THREE.LineSegments(new THREE.BufferGeometry(), mats.ext); scene.add(extSeg);
+stage.setHome(new THREE.Vector3(1.0, 0, 0), new THREE.Vector3(1.4, 3.2, 12.5));
+stage.overheadLight(1.5, 0, 9, 2);
+stage.renderer.shadowMap.enabled = false;
+
+const fs = () => P.kind*P.f;
+function buildLens(){
+  while (lensG.children.length){ const o = lensG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  while (fG.children.length){ const o = fG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const R = P.D/2, pts = [], th = 0.06 + 0.25/P.f;
+  for (let i=0;i<=24;i++){ const y = R*i/24, s = 1 - (y/R)**2;
+    const x = P.kind > 0 ? 0.02 + th*s : 0.03 + th*(1 - s); pts.push(new THREE.Vector2(y, x)); }
+  const half = new THREE.LatheGeometry(pts, 48);
+  // Lathe 绕 y 轴旋转；转成绕 x 轴（光轴）
+  [1, -1].forEach(sg => { const m = new THREE.Mesh(half.clone(), mats.lens); m.rotation.z = -Math.PI/2; m.scale.y = sg; lensG.add(m); });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.02, 8, 48), mats.bench); ring.rotation.y = Math.PI/2; lensG.add(ring);
+  [-1, 1].forEach((s, k) => { [1, 2].forEach(mult => {
+    const x = s*mult*P.f, d = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 8), mats.f); d.position.set(x, 0, 0); fG.add(d);
+    const l = Lab.label((mult === 2 ? '2' : '') + (s < 0 ? 'F' : 'F′'), '--ink-2', 0.18); l.position.set(x - 0.06, -0.22, 0); fG.add(l); }); });
+}
+function trace(){
+  const f = fs(), u = P.u, h = P.h;
+  const tip = new THREE.Vector3(-u, h, 0);
+  const d1 = new THREE.Vector3(Math.sign(f)*f, -Math.sign(f)*h, 0).normalize();     // 平行光线经透镜后
+  const d2 = new THREE.Vector3(u, -h, 0).normalize();                              // 过光心
+  const y3 = -h*f/(u - f), d3 = new THREE.Vector3(1, 0, 0);                         // 过焦点 → 平行
+  const p1 = new THREE.Vector3(0, h, 0), p2 = new THREE.Vector3(0, 0, 0), p3 = new THREE.Vector3(0, y3, 0);
+  // 光线 1 与光线 2 的交点（可能在透镜左侧 → 虚像）
+  const det = d1.x*(-d2.y) - d1.y*(-d2.x);
+  let X = null, Y = null;
+  if (Math.abs(det) > 1e-9){ const t = ((p2.x - p1.x)*(-d2.y) - (p2.y - p1.y)*(-d2.x))/det; X = p1.x + d1.x*t; Y = p1.y + d1.y*t; }
+  return {tip, p1, p2, p3, d1, d2, d3, X, Y, y3, ok: Math.abs(u - f) > 1e-6};
+}
+function update(){
+  const f = fs(), u = P.u, h = P.h, T = trace();
+  setArrow(obj, -u, h); objPost.position.x = -u; lensPost.position.x = 0;
+  const vT = Math.abs(u - f) < 1e-6 ? Infinity : u*f/(u - f), mT = -vT/u;
+  const real = isFinite(vT) && vT > 0;
+  // 光线
+  const showR = $('tRays').checked, far = Math.max(P.s, isFinite(vT) && vT > 0 ? vT : 0) + 1.5;
+  const segs = [];
+  [[T.tip, T.p1, T.d1], [T.tip, T.p2, T.d2], [T.tip, T.p3, T.d3]].forEach(([a, b, d], k) => {
+    const inLimit = Math.abs(b.y) <= P.D/2 + 1e-6;
+    rays[k].visible = raysOut[k].visible = showR && inLimit;
+    if (!inLimit || !showR) return;
+    rays[k].setEnds(a, b);
+    const len = Math.min(14, (far - b.x)/Math.max(0.05, d.x));
+    raysOut[k].setEnds(b, b.clone().addScaledVector(d, len));
+    if (!real){ const back = b.clone().addScaledVector(d, -Math.min(14, (b.x + u + 1)/Math.max(0.05, d.x))); segs.push(b.x, b.y, 0, back.x, back.y, 0); }
+  });
+  extSeg.geometry.dispose(); extSeg.geometry = new THREE.BufferGeometry(); extSeg.geometry.setAttribute('position', new THREE.Float32BufferAttribute(segs, 3)); extSeg.computeLineDistances(); extSeg.visible = showR;
+  // 像
+  if (T.X !== null && isFinite(vT)){ setArrow(img, T.X, T.Y); mats.img.opacity = real ? 0.95 : 0.4; } else img.visible = false;
+  Lab.text('h-v', T.X === null ? '无穷远' : (T.X).toFixed(4)); Lab.text('h-vt', isFinite(vT) ? vT.toFixed(4) : '无穷远');
+  Lab.text('h-m', T.X === null ? '—' : (T.Y/h).toFixed(4)); Lab.text('h-mt', isFinite(mT) ? mT.toFixed(4) : '—');
+  const kind = !isFinite(vT) ? '不成像（平行光）' : `${real ? '倒立' : '正立'}、${Math.abs(mT) > 1.0001 ? '放大' : Math.abs(mT) < 0.9999 ? '缩小' : '等大'}的${real ? '实像' : '虚像'}`;
+  Lab.text('h-k', kind);
+  Lab.text('f1', isFinite(vT) ? `1/${u.toFixed(2)} + 1/v = 1/${f.toFixed(2)} ⇒ v = ${vT.toFixed(4)}` : 'u = f，出射光平行，不成像');
+  Lab.text('t1', isFinite(vT) ? vT.toFixed(4) : '∞'); Lab.text('s1', T.X === null ? '∞' : T.X.toFixed(4)); Lab.text('e1', isFinite(vT) && T.X !== null ? Lab.relErr(vT, T.X) : '—');
+  Lab.text('t2', isFinite(mT) ? (mT*h).toFixed(4) : '—'); Lab.text('s2', T.X === null ? '—' : T.Y.toFixed(4)); Lab.text('e2', isFinite(mT) && T.X !== null ? Lab.relErr(mT*h, T.Y) : '—');
+  // 光屏
+  screen.position.set(P.s, 0, 0); scrPost.position.x = P.s;
+  drawScreen(vT, mT, real);
+}
+function drawScreen(v, m, real){
+  const W = 320, H = 200, ctx = sctx;
+  ctx.filter = 'none'; ctx.fillStyle = '#f2efe6'; ctx.fillRect(0, 0, W, H);
+  const pxPerM = H/1.375;
+  let note;
+  if (!real){ ctx.fillStyle = 'rgba(232,155,0,0.10)'; ctx.fillRect(0, 0, W, H); note = isFinite(v) ? '虚像不能呈现在光屏上：屏上只有一片模糊的光。用眼睛透过透镜才能看到它。' : '物体在焦点上，出射光平行，屏上得不到像。'; }
+  else {
+    const hs = m*P.h*(P.s/v), blur = P.D*Math.abs(P.s - v)/v/2*pxPerM;
+    ctx.filter = `blur(${Math.min(30, blur).toFixed(1)}px)`;
+    const cx = W/2, cy = H/2, len = hs*pxPerM;
+    ctx.strokeStyle = '#d98a00'; ctx.fillStyle = '#d98a00'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); ctx.stroke();
+    const dir = Math.sign(len) || 1; ctx.beginPath(); ctx.moveTo(cx, cy - len - dir*4); ctx.lineTo(cx - 12, cy - len + dir*16); ctx.lineTo(cx + 12, cy - len + dir*16); ctx.closePath(); ctx.fill();
+    ctx.filter = 'none';
+    const sharp = Math.abs(P.s - v) < 0.03;
+    note = sharp ? `光屏在像的位置上，像最清晰：${m < 0 ? '倒立' : '正立'}、像高 ${(Math.abs(m)*P.h).toFixed(3)}。` : `光屏离像 ${Math.abs(P.s - v).toFixed(2)}，弥散斑直径约 ${(P.D*Math.abs(P.s - v)/v).toFixed(3)}，像是模糊的。`;
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+  stex.needsUpdate = true; Lab.text('scrNote', note);
+}
+function setKind(k){ P.kind = k; $('kV').setAttribute('aria-pressed', k > 0); $('kC').setAttribute('aria-pressed', k < 0); buildLens(); update(); }
+$('kV').addEventListener('click', () => setKind(1)); $('kC').addEventListener('click', () => setKind(-1));
+Lab.range('f', v => v.toFixed(2), v => { P.f = v; buildLens(); update(); });
+const uR = Lab.range('u', v => v.toFixed(2), v => { P.u = v; update(); });
+Lab.range('hh', v => v.toFixed(2), v => { P.h = v; update(); });
+const sR = Lab.range('s', v => v.toFixed(2), v => { P.s = v; update(); });
+document.querySelectorAll('[data-u]').forEach(b => b.addEventListener('click', () => uR.set(Math.round(+b.dataset.u*P.f*100)/100)));
+$('focusBtn').addEventListener('click', () => { const f = fs(), v = P.u*f/(P.u - f); if (isFinite(v) && v > 0 && v <= 9) sR.set(Math.round(v*100)/100); else Lab.text('scrNote', '当前是虚像或像距超出光具座，无法用光屏承接。'); });
+$('tRays').addEventListener('change', update);
+P.f = +$('f').value; P.u = +$('u').value; P.h = +$('hh').value; P.s = +$('s').value;
+buildLens(); update();
+})();
+</script>
+</body>
+</html>

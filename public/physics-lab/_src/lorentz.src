@@ -1,0 +1,162 @@
+@title 带电粒子在磁场中的运动
+@sub 洛伦兹力：圆周、螺旋线与速度选择器
+@badge Boris 积分 · 步长 1/2000
+@hud
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i></span><span id="h-t">0.000</span><span class="th">—</span>
+      <span class="k">速率 <i class="v">v</i></span><span id="h-v">0.000</span><span class="th" id="h-vt">0.000</span>
+      <span class="k">洛伦兹力 |<i class="v">F</i>|</span><span id="h-f">0.000</span><span class="th" id="h-ft">0.000</span>
+@legend
+      <div><span class="sw bar" style="background:var(--back)"></span>磁感线 <i class="v">B</i>（竖直向上）</div>
+      <div><span class="sw bar" style="background:var(--f-g)"></span>电场 <i class="v">E</i></div>
+      <div><span class="sw bar" style="background:var(--f-n)"></span>洛伦兹力</div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>速度</div>
+@aside
+    <section>
+      <h2>参数</h2>
+      <div class="btns" role="group" aria-label="预设">
+        <button class="chip" data-p="circle">匀速圆周</button><button class="chip" data-p="helix">螺旋线</button><button class="chip" data-p="selector">速度选择器</button>
+      </div>
+      <div class="row"><label for="sg">电荷符号</label><select id="sg"><option value="1" selected>正电荷</option><option value="-1">负电荷</option></select><span></span></div>
+      <div class="row"><label for="qm">比荷 |<i class="v">q</i>|⁄<i class="v">m</i></label><input type="range" id="qm" min="0.5" max="3" step="0.1" value="1"><output id="qmo"></output></div>
+      <div class="row"><label for="B">磁感应强度</label><input type="range" id="B" min="0.5" max="2" step="0.05" value="1"><output id="Bo"></output></div>
+      <div class="row"><label for="v">速率 <i class="v">v</i></label><input type="range" id="v" min="0.5" max="3" step="0.05" value="2"><output id="vo"></output></div>
+      <div class="row"><label for="al">与 <i class="v">B</i> 夹角</label><input type="range" id="al" min="0" max="90" step="1" value="90"><output id="alo"></output></div>
+      <div class="row"><label for="E">电场 <i class="v">E<sub>z</sub></i></label><input type="range" id="E" min="-6" max="6" step="0.05" value="0"><output id="Eo"></output></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="2">2×</option><option value="1" selected>1×</option><option value="0.5">0.5×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">发射</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tField" checked>场线</label>
+        <label><input type="checkbox" id="tVec" checked>力与速度</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">采用约化单位。粒子从原点出发，初速度在 <i class="v">x</i>–<i class="v">y</i> 平面内，与竖直向上的磁场成指定夹角。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">qvB</i> = <i class="v">mv</i>²⁄<i class="v">r</i> ⇒ <i class="v">r</i> = <i class="v">mv</i><sub>⊥</sub> ⁄ (<i class="v">qB</i>)</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">T</i> = 2π<i class="v">m</i> ⁄ (<i class="v">qB</i>)，螺距 <i class="v">p</i> = <i class="v">v</i><sub>∥</sub><i class="v">T</i></div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq">速度选择器：<i class="v">qE</i> = <i class="v">qvB</i> ⇒ <i class="v">v</i> = <i class="v">E</i>⁄<i class="v">B</i></div><div class="sub" id="f3"></div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>半径 <i class="v">r</i></td><td id="tr">—</td><td id="sr">—</td><td id="er">—</td></tr>
+          <tr><td>周期 <i class="v">T</i></td><td id="tT">—</td><td id="sT">—</td><td id="eT">—</td></tr>
+          <tr><td>螺距 <i class="v">p</i></td><td id="tp">—</td><td id="sp">—</td><td id="ep">—</td></tr>
+          <tr><td>漂移速度</td><td id="td">—</td><td id="sd">—</td><td id="ed">—</td></tr>
+        </tbody>
+      </table>
+      <p class="note">洛伦兹力始终垂直于速度，不做功，所以没有电场时速率保持不变。周期与速率无关：速率越大半径越大，转一圈的时间相同。</p>
+    </section>
+@script
+const DT = 1/2000;
+const P = {sg:1, qm:1, B:1, v:2, al:90, E:0, speed:1};
+const S = {t:0, p:new THREE.Vector3(), v:new THREE.Vector3(), ang:0, period:null, xs:[], y0:0, px:[], zmin:0, zmax:0, xmin:0, xmax:0};
+const pl = Lab.player($('goBtn'), {idle:'发射', done:'再次发射'});
+const mats = { q: Lab.std('--ball', {roughness:0.35}), trail: Lab.lineMat('--ghost'), bl: Lab.lineMat('--back', {transparent:true, opacity:0.45}) };
+const floorM = Lab.floor(scene, 30, 30, -1);
+const fieldG = new THREE.Group(); scene.add(fieldG);
+const ball = new THREE.Mesh(new THREE.SphereGeometry(0.1, 24, 16), mats.q); ball.castShadow = true; scene.add(ball);
+const trail = Lab.polyline(mats.trail, 8000); scene.add(trail);
+const aF = Lab.arrow('--f-n', 0.12), aV = Lab.arrow('--ink', 0.12); scene.add(aF, aV);
+let qLab = Lab.label('+q', '--ball', 0.22); scene.add(qLab);
+
+const th = () => {
+  const qm = P.qm, B = P.B, a = P.al*Math.PI/180, vp = P.v*Math.sin(a), vl = P.v*Math.cos(a), T = 2*Math.PI/(qm*B);
+  return {r: vp/(qm*B), T, pitch: vl*T, drift: Math.abs(P.E)/B};
+};
+function build(){
+  while (fieldG.children.length){ const o = fieldG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const R = Math.max(2, th().r) + 1.2, H = Math.min(12, Math.max(4, th().pitch*3 + 1));
+  const n = 5, pts = [];
+  for (let i=0;i<=n;i++) for (let j=0;j<=n;j++){ const x = -R + 2*R*i/n, z = -R + 2*R*j/n; pts.push(x, -0.9, z, x, H, z); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  fieldG.add(new THREE.LineSegments(g, mats.bl));
+  for (let i=0;i<=n;i+=2) for (let j=0;j<=n;j+=2){ const a = Lab.arrow('--back', 0.18); a.show(new THREE.Vector3(-R + 2*R*i/n, H - 0.6, -R + 2*R*j/n), new THREE.Vector3(0, 0.6, 0), 1, true); fieldG.add(a); }
+  if (Math.abs(P.E) > 1e-6) for (let i=0;i<=n;i+=1){ const a = Lab.arrow('--f-g', 0.12); a.show(new THREE.Vector3(-R + 2*R*i/n, 0.2, -Math.sign(P.E)*0.8), new THREE.Vector3(0, 0, Math.sign(P.E)*1.6), 1, true); fieldG.add(a); }
+  const lb = Lab.label('B', '--back', 0.4); lb.position.set(-R, H + 0.3, -R); fieldG.add(lb);
+  const D = Math.max(R*2, H)*1.25 + 3;
+  stage.setHome(new THREE.Vector3(0, Math.min(H, 6)/2, 0), new THREE.Vector3(D*0.55, D*0.45 + 1, D*0.8));
+  stage.overheadLight(0, 0, R + 2, H + 1);
+}
+function reset(){
+  const a = P.al*Math.PI/180;
+  S.t = 0; S.p.set(0, 0, 0); S.v.set(P.v*Math.sin(a), P.v*Math.cos(a), 0); S.ang = 0; S.period = null;
+  S.xmin = S.xmax = S.zmin = S.zmax = 0; S.y0 = 0; S.yT = null; S.xT = null;
+  S.prevA = undefined; trail.clear(); build(); pl.set('idle');
+  formulas(); view();
+}
+pl.onRestart = reset;
+function boris(){
+  const q = P.sg*P.qm, E = new THREE.Vector3(0, 0, P.E), Bv = new THREE.Vector3(0, P.B, 0);
+  const vm = S.v.clone().addScaledVector(E, q*DT/2);
+  const t = Bv.clone().multiplyScalar(q*DT/2), s = t.clone().multiplyScalar(2/(1 + t.lengthSq()));
+  const vp = vm.clone().add(vm.clone().cross(t));
+  const vplus = vm.clone().add(vp.cross(s));
+  S.v = vplus.addScaledVector(E, q*DT/2);
+  const prev = S.p.clone(); S.p.addScaledVector(S.v, DT); S.t += DT;
+  if (S.p.x < S.xmin) S.xmin = S.p.x; if (S.p.x > S.xmax) S.xmax = S.p.x;
+  if (S.p.z < S.zmin) S.zmin = S.p.z; if (S.p.z > S.zmax) S.zmax = S.p.z;
+  // 速度方向在水平面内转过的角度
+  const a0 = Math.atan2(S.v.z, S.v.x);
+  if (S.prevA !== undefined){ let d = a0 - S.prevA; if (d > Math.PI) d -= 2*Math.PI; if (d < -Math.PI) d += 2*Math.PI;
+    const before = S.ang; S.ang += Math.abs(d);
+    if (S.period === null && S.ang >= 2*Math.PI && Math.hypot(S.v.x, S.v.z) > 1e-6){ const f = (2*Math.PI - before)/(S.ang - before);
+      S.period = S.t - DT + DT*f; S.yT = prev.y + (S.p.y - prev.y)*f; S.xT = prev.x + (S.p.x - prev.x)*f; formulas(); } }
+  S.prevA = a0;
+  if (Math.round(S.t/DT) % 10 === 0) trail.push(S.p);
+  if (Math.abs(S.p.x) > 25 || Math.abs(S.p.z) > 25 || S.p.y > 14 || S.t > 60){ pl.set('done'); return false; }
+}
+const drive = Lab.stepper(DT, () => boris());
+function formulas(){
+  const T = th();
+  Lab.text('f1', `v⊥ = ${(P.v*Math.sin(P.al*Math.PI/180)).toFixed(3)}，r = ${T.r.toFixed(4)}`);
+  Lab.text('f2', `T = ${T.T.toFixed(4)}，v∥ = ${(P.v*Math.cos(P.al*Math.PI/180)).toFixed(3)}，p = ${T.pitch.toFixed(4)}`);
+  Lab.text('f3', `沿 x 方向速率 v 的粒子直线通过需要 E_z = −vB = ${(-P.v*P.B).toFixed(3)}（与电荷正负无关）；当前 E_z = ${P.E.toFixed(2)}`);
+  const hasE = Math.abs(P.E) > 1e-6;
+  const straight = hasE && P.al === 90 && Math.abs(P.E + P.v*P.B) < 1e-6;
+  Lab.text('tr', hasE ? '—' : T.r.toFixed(4)); Lab.text('tT', straight || P.al === 0 ? '不旋转' : T.T.toFixed(4)); Lab.text('tp', hasE ? '—' : T.pitch.toFixed(4));
+  Lab.text('td', straight ? '直线通过' : hasE ? T.drift.toFixed(4) : '0');
+  const done = S.period !== null;
+  const rs = (S.xmax - S.xmin)/2, rz = (S.zmax - S.zmin)/2;
+  Lab.text('sr', done && !hasE ? ((rs + rz)/2).toFixed(4) : '—'); Lab.text('er', done && !hasE ? Lab.relErr(T.r, (rs + rz)/2) : '—');
+  Lab.text('sT', done ? S.period.toFixed(4) : (P.al === 0 || (hasE && Math.abs(P.E + P.v*P.B) < 1e-3 && P.al === 90) ? '不旋转' : '测量中…'));
+  Lab.text('eT', done ? Lab.relErr(T.T, S.period) : '—');
+  Lab.text('sp', done && !hasE ? S.yT.toFixed(4) : '—'); Lab.text('ep', done && !hasE && T.pitch > 1e-6 ? Lab.relErr(T.pitch, S.yT) : '—');
+  const dsim = done && hasE ? Math.abs(S.xT)/S.period : null;
+  Lab.text('sd', straight ? (Math.abs(S.p.z) < 1e-6 && S.t > 0 ? `直线（偏离 ${Math.abs(S.p.z).toExponential(1)}）` : (S.t > 0 ? `偏离 ${Math.abs(S.p.z).toFixed(4)}` : '—')) : dsim !== null ? dsim.toFixed(4) : '—'); Lab.text('ed', dsim !== null ? Lab.relErr(T.drift, dsim) : '—');
+}
+function view(){
+  ball.position.copy(S.p);
+  qLab.position.copy(S.p).add(new THREE.Vector3(0.15, 0.2, 0));
+  fieldG.visible = $('tField').checked;
+  const on = $('tVec').checked, q = P.sg*P.qm;
+  const F = new THREE.Vector3(0, 0, P.E).add(S.v.clone().cross(new THREE.Vector3(0, P.B, 0))).multiplyScalar(q);
+  aF.show(S.p, F, 0.35, on); aV.show(S.p, S.v, 0.45, on);
+  Lab.text('h-t', S.t.toFixed(3)); Lab.text('h-v', S.v.length().toFixed(4));
+  Lab.text('h-vt', Math.abs(P.E) < 1e-6 ? P.v.toFixed(4) : '有电场时变化');
+  const vperp = Math.hypot(S.v.x, S.v.z);
+  Lab.text('h-f', F.length().toFixed(4)); Lab.text('h-ft', Math.abs(P.E) < 1e-6 ? (P.qm*vperp*P.B).toFixed(4) : '—');
+}
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, P.speed); view(); } });
+const R = {};
+R.qm = Lab.range('qm', v => v.toFixed(1), v => { P.qm = v; reset(); });
+R.B = Lab.range('B', v => v.toFixed(2), v => { P.B = v; reset(); });
+R.v = Lab.range('v', v => v.toFixed(2), v => { P.v = v; reset(); });
+R.al = Lab.range('al', v => v+'°', v => { P.al = v; reset(); });
+R.E = Lab.range('E', v => v.toFixed(2), v => { P.E = v; reset(); });
+$('sg').addEventListener('change', e => { P.sg = +e.target.value; scene.remove(qLab);
+  qLab = Lab.label(P.sg > 0 ? '+q' : '−q', P.sg > 0 ? '--ball' : '--ghost', 0.22); scene.add(qLab); reset(); });
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
+  const p = b.dataset.p;
+  if (p === 'circle'){ P.al = 90; P.E = 0; }
+  if (p === 'helix'){ P.al = 60; P.E = 0; }
+  if (p === 'selector'){ P.al = 90; P.E = -P.v*P.B; }
+  $('al').value = P.al; $('alo').textContent = P.al+'°'; $('E').value = P.E; $('Eo').textContent = P.E.toFixed(2); reset();
+}));
+P.qm = +$('qm').value; P.B = +$('B').value; P.v = +$('v').value; P.al = +$('al').value; P.E = +$('E').value; P.speed = +$('speed').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('resetBtn').addEventListener('click', reset);
+['tField','tVec'].forEach(id => $(id).addEventListener('change', view));
+reset();

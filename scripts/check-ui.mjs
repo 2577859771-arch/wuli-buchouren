@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {parseHTML} from 'linkedom';
+import {lessons} from '../public/content.js';
+const {document,window}=parseHTML(await readFile('public/index.html','utf8'));
+globalThis.document=document;globalThis.window=window;let hash='';globalThis.location={get hash(){return hash;},set hash(v){hash=v.startsWith('#')?v:'#'+v;}};globalThis.requestAnimationFrame=()=>{};
+await import('../public/app.js');assert.equal(document.querySelector('#home-view').hidden,false);assert.equal(document.querySelector('#lab-view').hidden,true);assert(document.querySelector('#home-view #question-form'));assert(document.querySelector('#home-view #question-image'));
+for(const l of lessons){const button=document.querySelector(`[data-topic="${l.id}"]`);if(!button){document.querySelector('[data-level="uni"]').dispatchEvent(new window.Event("click",{bubbles:true}));}document.querySelector(`[data-topic="${l.id}"]`).dispatchEvent(new window.Event("click",{bubbles:true}));window.dispatchEvent(new window.Event("hashchange"));assert.equal(document.querySelector('#lesson-title').textContent,l.title);assert(document.querySelector('#parameter-controls').children.length);assert.equal(document.querySelector('#theory-content').hidden,true);assert(document.querySelector('#demo-details').textContent.includes(l.example));assert(!/NaN|undefined/.test(document.querySelector('#scene').innerHTML));const diagram=document.querySelector('#demo-details .lesson-diagram');assert(diagram);assert(diagram.querySelector('title').textContent.includes(l.title));assert(!/NaN|undefined/.test(diagram.outerHTML));assert(document.querySelector('#demo-details [data-generate-illustration]').dataset.generateIllustration===l.id);}
+for(const v of ['home','catalog','formulas','sources']){document.querySelector(`[data-view="${v}"]`).dispatchEvent(new window.Event("click",{bubbles:true}));window.dispatchEvent(new window.Event('hashchange'));}
+assert.equal(document.querySelectorAll('.subtopic').length,3);console.log('42 lessons and all navigation rendered in DOM; no browser visual QA performed.');

@@ -1,0 +1,186 @@
+@title 竖直面内的圆周运动
+@sub 过山车回环：能否通过最高点，何处脱离轨道
+@badge RK4 积分 · 步长 1/2000 s
+@hud
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i> / s</span><span id="h-t">0.000</span><span class="th" id="h-st">—</span>
+      <span class="k">高度 / m</span><span id="h-y">0.000</span><span class="th">—</span>
+      <span class="k"><i class="v">v</i> / m·s⁻¹</span><span id="h-v">0.000</span><span class="th" id="h-vt">0.000</span>
+      <span class="k"><i class="v">N</i> ⁄ <i class="v">mg</i></span><span id="h-n">—</span><span class="th" id="h-nt">—</span>
+@legend
+      <div><span class="sw bar" style="background:var(--f-g)"></span>重力 <i class="v">mg</i></div>
+      <div><span class="sw bar" style="background:var(--f-n)"></span>轨道支持力 <i class="v">N</i></div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>速度</div>
+      <div><span class="sw" style="background:var(--side)"></span>脱轨后的轨迹</div>
+@aside
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="h">释放高度 <i class="v">h</i></label><input type="range" id="h" min="0.5" max="6" step="0.05" value="3"><output id="ho"></output></div>
+      <div class="row"><label for="R">回环半径 <i class="v">R</i></label><input type="range" id="R" min="0.6" max="1.6" step="0.05" value="1"><output id="Ro"></output></div>
+      <div class="btns" role="group" aria-label="高度预设">
+        <button class="chip" data-h="1">h = R</button><button class="chip" data-h="2">h = 2R</button>
+        <button class="chip" data-h="2.5">h = 2.5R（临界）</button><button class="chip" data-h="3.5">h = 3.5R</button>
+      </div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1">1×</option><option value="0.5" selected>0.5×</option><option value="0.25">0.25×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">释放</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tVec" checked>受力与速度</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">小球视为质点，轨道光滑。回环在出口处稍微错开，只是为了不和入口重叠。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq">最高点：<i class="v">mg</i> + <i class="v">N</i> = <i class="v">mv</i>²⁄<i class="v">R</i>，<i class="v">N</i> ≥ 0 ⇒ <i class="v">v</i> ≥ √(<i class="v">gR</i>)</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq">机械能守恒：<i class="v">v</i>顶² = 2<i class="v">g</i>(<i class="v">h</i> − 2<i class="v">R</i>) ⇒ <i class="v">h</i> ≥ 2.5<i class="v">R</i></div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq"><i class="v">N</i> ⁄ <i class="v">mg</i> = 2(<i class="v">h</i> − <i class="v">R</i>)⁄<i class="v">R</i> + 3cos<i class="v">θ</i></div><div class="sub">θ 从回环最低点算起。N 降到 0 时小球离开轨道做斜抛运动</div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>误差</th></tr></thead>
+        <tbody>
+          <tr><td>结果</td><td id="tR">—</td><td id="sR">—</td><td></td></tr>
+          <tr><td>最高点速度</td><td id="tV">—</td><td id="sV">—</td><td id="eV">—</td></tr>
+          <tr><td>最高点 <i class="v">N</i>⁄<i class="v">mg</i></td><td id="tN">—</td><td id="sN">—</td><td id="eN">—</td></tr>
+          <tr><td>脱轨角 <i class="v">θ</i></td><td id="tL">—</td><td id="sL">—</td><td id="eL">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2><i class="v">N</i>⁄<i class="v">mg</i> 随 <i class="v">θ</i> 的变化</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend"><span><span class="sw bar" style="background:var(--ghost)"></span>仿真</span><span><span class="sw bar" style="background:var(--theory)"></span>理论（虚线）</span></div>
+    </section>
+@script
+const DT = 1/2000, G = 9.8, PHI = 35*Math.PI/180, RB = 0.08, TR = 0.035, LF = 1.2, LE = 3, ZW = 0.45;
+const P = {h:3, R:1, speed:0.5};
+Lab.applyQuestion(P);
+const S = {t:0, s:0, v:0, mode:'track', fp:null, fv:null, topV:null, topN:null, leave:null, end:null, maxTh:0};
+const pl = Lab.player($('goBtn'), {idle:'释放', done:'再次释放'});
+const mats = { track: Lab.std('--ink-2', {roughness:0.5, metalness:0.3}), ball: Lab.std('--ball', {roughness:0.35}),
+  post: Lab.std('--wall', {roughness:0.9}), fly: Lab.lineMat('--side'), mark: Lab.dashMat('--theory') };
+Lab.floor(scene, 16, 8, -0.04);
+const rig = new THREE.Group(); scene.add(rig);
+const ball = new THREE.Mesh(new THREE.SphereGeometry(RB, 24, 16), mats.ball); ball.castShadow = true; scene.add(ball);
+const fly = Lab.polyline(mats.fly, 2000); scene.add(fly);
+const aG = Lab.arrow('--f-g', 0.08), aN = Lab.arrow('--f-n', 0.08), aV = Lab.arrow('--ink', 0.08); scene.add(aG, aN, aV);
+const chart = Lab.Chart($('chart'), {xLabel:'θ / °', xMax:360, series:[{color:'--ghost'}, {color:'--theory', dash:true}]});
+
+const L = () => ({r: P.h/Math.sin(PHI), f: LF, c: 2*Math.PI*P.R, e: LE});
+function geom(s){
+  const l = L(), R = P.R;
+  if (s < l.r){ const x0 = -LF - P.h/Math.tan(PHI); return {x: x0 + s*Math.cos(PHI), y: P.h - s*Math.sin(PHI), z:0, tx: Math.cos(PHI), ty: -Math.sin(PHI), seg:'ramp'}; }
+  s -= l.r;
+  if (s < l.f) return {x: -LF + s, y: 0, z:0, tx:1, ty:0, seg:'flat'};
+  s -= l.f;
+  if (s < l.c){ const th = s/R; return {x: R*Math.sin(th), y: R - R*Math.cos(th), z: ZW*th/(2*Math.PI), tx: Math.cos(th), ty: Math.sin(th), seg:'loop', th}; }
+  s -= l.c;
+  return {x: s, y: 0, z: ZW, tx:1, ty:0, seg:'exit'};
+}
+const total = () => { const l = L(); return l.r + l.f + l.c + l.e; };
+function nOverMg(th, v){ return v*v/(G*P.R) + Math.cos(th); }
+
+function build(){
+  while (rig.children.length){ const o = rig.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  const pts = [], T = total();
+  for (let i=0;i<=900;i++){
+    const g = geom(T*i/900);
+    let nx, ny; if (g.seg === 'loop'){ nx = Math.sin(g.th); ny = -Math.cos(g.th); } else { nx = g.ty; ny = -g.tx; } // 外法线
+    pts.push(new THREE.Vector3(g.x + nx*(RB+TR), g.y + ny*(RB+TR), g.z));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 900, TR, 8, false), mats.track); tube.castShadow = true; rig.add(tube);
+  // 支柱
+  for (let x = -LF - P.h/Math.tan(PHI) + 0.4; x < -LF; x += 0.7){ const y = P.h - (x + LF + P.h/Math.tan(PHI))*Math.tan(PHI) - RB - TR;
+    if (y > 0.05){ const p = new THREE.Mesh(new THREE.BoxGeometry(0.05, y, 0.05), mats.post); p.position.set(x, y/2 - 0.04, 0); rig.add(p); } }
+  const top = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2*P.R + RB, 0.05), mats.post); top.position.set(0, P.R, ZW/2 - 0.25); rig.add(top);
+  // 2.5R 临界高度参考线
+  const yc = 2.5*P.R, x0 = -LF - P.h/Math.tan(PHI) - 0.3;
+  const ref = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x0, yc, -0.3), new THREE.Vector3(P.R + 0.5, yc, -0.3)]), mats.mark);
+  ref.computeLineDistances(); rig.add(ref);
+  const lab = Lab.label('临界高度 2.5R', '--ink-2', 0.16); lab.position.set(x0, yc + 0.14, -0.3); rig.add(lab);
+  const xmin = x0, xmax = LE + 0.5, cx = (xmin + xmax)/2, D = Math.max(xmax - xmin, P.h*1.6)*0.85 + 2;
+  stage.overheadLight(cx, 0, (xmax - xmin)/2 + 1.5, Math.max(P.h, 2*P.R));
+  return {cx, D};
+}
+function reset(){
+  S.t = 0; S.s = 0; S.v = 0; S.mode = 'track'; S.fp = null; S.fv = null; S.topV = null; S.topN = null; S.leave = null; S.end = null; S.maxTh = 0;
+  fly.clear();
+  const {cx, D} = build();
+  stage.setHome(new THREE.Vector3(cx, Math.max(P.h, 2*P.R)*0.45, 0), new THREE.Vector3(cx + D*0.12, Math.max(P.h, 2*P.R)*0.6 + D*0.18, D));
+  chart.clear(); chart.setYRange(-3, Math.max(3, 2*(P.h - P.R)/P.R + 3.5));
+  for (let d=0; d<=360; d+=3) chart.push(1, d, 2*(P.h - P.R)/P.R + 3*Math.cos(d*Math.PI/180));
+  chart.draw(); pl.set('idle'); Lab.text('h-st', '—'); formulas(); view();
+}
+pl.onRestart = reset;
+function finish(msg){ S.end = msg; pl.set('done'); Lab.text('h-st', msg); formulas(); }
+function step(){
+  S.t += DT;
+  if (S.mode === 'track'){
+    const f = y => { const g = geom(y[0]); return [y[1], -G*g.ty]; };
+    const prev = geom(S.s);
+    const y = Lab.rk4([S.s, S.v], f, DT); S.s = y[0]; S.v = y[1];
+    const g = geom(S.s);
+    if (g.seg === 'loop'){
+      if (g.th > S.maxTh) S.maxTh = g.th;
+      const n = nOverMg(g.th, S.v);
+      if (Math.round(S.t/DT) % 10 === 0) chart.push(0, g.th*180/Math.PI, n);
+      if (prev.seg === 'loop' && prev.th < Math.PI && g.th >= Math.PI && S.topV === null){ S.topV = Math.abs(S.v); S.topN = n; formulas(); }
+      if (n < -1e-5 && S.v > 0){
+        S.leave = g.th; S.mode = 'fly';
+        S.fp = new THREE.Vector3(g.x, g.y, g.z); S.fv = new THREE.Vector3(g.tx*S.v, g.ty*S.v, ZW/(2*Math.PI*P.R)*S.v);
+        formulas();
+      }
+    }
+    if (S.s >= total()){ finish('顺利通过回环'); return false; }
+    if (S.s < 0){ S.s = 0; S.v = 0; }
+    if (S.t > 14){ finish('在轨道上来回滑动'); return false; }
+  } else {
+    S.fv.y -= G*DT; S.fp.addScaledVector(S.fv, DT);
+    if (Math.round(S.t/DT) % 8 === 0) fly.push(S.fp);
+    const dx = S.fp.x, dy = S.fp.y - P.R;
+    if (Math.hypot(dx, dy) >= P.R || S.fp.y <= 0){ finish('脱离轨道后落回'); return false; }
+  }
+}
+const drive = Lab.stepper(DT, () => { if (step() === false) return false; });
+function formulas(){
+  const R = P.R, h = P.h;
+  Lab.text('f1', `R = ${R.toFixed(2)} m，最高点最小速度 √(gR) = ${Math.sqrt(G*R).toFixed(3)} m/s`);
+  Lab.text('f2', `h = ${h.toFixed(2)} m = ${(h/R).toFixed(2)}R，临界高度 2.5R = ${(2.5*R).toFixed(2)} m`);
+  const pass = h >= 2.5*R - 1e-9, cosL = (2*R - 2*h)/(3*R);
+  Lab.text('tR', pass ? '通过' : h <= R ? '不超过圆心高度，滑回' : '中途脱轨');
+  Lab.text('tV', pass ? Math.sqrt(2*G*(h - 2*R)).toFixed(4) : '—');
+  Lab.text('tN', pass ? (2*(h - R)/R - 3).toFixed(4) : '—');
+  Lab.text('tL', !pass && h > R ? (Math.acos(cosL)*180/Math.PI).toFixed(2)+'°' : '—');
+  Lab.text('sR', S.end || (S.mode === 'fly' ? '已脱轨' : '—'));
+  Lab.text('sV', S.topV !== null ? S.topV.toFixed(4) : '—'); Lab.text('eV', S.topV !== null && pass ? Lab.relErr(Math.sqrt(2*G*(h - 2*R)), S.topV) : '—');
+  Lab.text('sN', S.topN !== null ? S.topN.toFixed(4) : '—'); Lab.text('eN', S.topN !== null && pass && Math.abs(2*(h-R)/R - 3) > 1e-3 ? Lab.relErr(2*(h - R)/R - 3, S.topN) : '—');
+  Lab.text('sL', S.leave !== null ? (S.leave*180/Math.PI).toFixed(2)+'°' : '—');
+  Lab.text('eL', S.leave !== null && !pass && h > R ? Lab.relErr(Math.acos(cosL), S.leave) : '—');
+}
+function view(){
+  let p, v, g = null;
+  if (S.mode === 'track'){ g = geom(S.s); p = new THREE.Vector3(g.x, g.y, g.z); v = new THREE.Vector3(g.tx*S.v, g.ty*S.v, 0); }
+  else { p = S.fp.clone(); v = S.fv.clone(); }
+  ball.position.copy(p);
+  const on = $('tVec').checked, k = 0.5;
+  aG.show(p, new THREE.Vector3(0, -1, 0), k, on);
+  let n = null;
+  if (g && g.seg === 'loop'){ n = nOverMg(g.th, S.v); aN.show(p, new THREE.Vector3(-Math.sin(g.th), Math.cos(g.th), 0).multiplyScalar(Math.max(0, n)), k, on); }
+  else if (g){ n = g.seg === 'ramp' ? Math.cos(PHI) : 1; aN.show(p, new THREE.Vector3(-g.ty, g.tx, 0).multiplyScalar(n), k, on); }
+  else aN.show(p, new THREE.Vector3(), k, false);
+  aV.show(p, v, 0.12, on);
+  const vt = Math.sqrt(Math.max(0, 2*G*(P.h - p.y)));
+  Lab.text('h-t', S.t.toFixed(3)); Lab.text('h-y', p.y.toFixed(3));
+  Lab.text('h-v', v.length().toFixed(3)); Lab.text('h-vt', vt.toFixed(3));
+  Lab.text('h-n', n === null ? '0（腾空）' : n.toFixed(3));
+  Lab.text('h-nt', g && g.seg === 'loop' ? (2*(P.h - P.R)/P.R + 3*Math.cos(g.th)).toFixed(3) : '—');
+}
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, P.speed); view(); chart.draw(); } });
+const hR = Lab.range('h', v => v.toFixed(2)+' m', v => { P.h = v; reset(); });
+Lab.range('R', v => v.toFixed(2)+' m', v => { P.R = v; reset(); });
+document.querySelectorAll('[data-h]').forEach(b => b.addEventListener('click', () => hR.set(Math.round(+b.dataset.h*P.R*100)/100)));
+P.h = +$('h').value; P.R = +$('R').value; P.speed = +$('speed').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('resetBtn').addEventListener('click', reset);
+$('tVec').addEventListener('change', view);
+reset();

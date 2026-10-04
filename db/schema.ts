@@ -1,0 +1,6 @@
+import {sqliteTable,text,integer} from 'drizzle-orm/sqlite-core';
+export const users=sqliteTable('users',{id:text('id').primaryKey(),email:text('email').notNull().unique(),passwordHash:text('password_hash').notNull(),salt:text('salt').notNull(),createdAt:integer('created_at').notNull(),emailVerifiedAt:integer('email_verified_at')});
+export const sessions=sqliteTable('sessions',{tokenHash:text('token_hash').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),expiresAt:integer('expires_at').notNull()});
+export const limits=sqliteTable('limits',{key:text('key').primaryKey(),count:integer('count').notNull(),expiresAt:integer('expires_at').notNull()});
+export const authTokens=sqliteTable('auth_tokens',{tokenHash:text('token_hash').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),kind:text('kind').notNull(),expiresAt:integer('expires_at').notNull(),usedAt:integer('used_at')});
+export const feedback=sqliteTable('feedback',{id:text('id').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),message:text('message').notNull(),context:text('context').notNull(),createdAt:integer('created_at').notNull()});

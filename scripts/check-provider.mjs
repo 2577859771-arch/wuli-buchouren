@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {aiConfiguration,qwenEndpoint,solveWithModel} from '../dist/server/index.js';
+const original=globalThis.fetch;
+const env={AI_PROVIDER:'qwen',QWEN_API_KEY:'test-qwen-key',QWEN_BASE_URL:'https://provider.example/v1',QWEN_MODEL:'qwen3.8-flash'};
+const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7ioAAAAASUVORK5CYII=';
+assert(aiConfiguration(env).ready);assert(!aiConfiguration({...env,QWEN_BASE_URL:''}).ready);assert.equal(qwenEndpoint('https://provider.example/v1/'),'https://provider.example/v1/chat/completions');assert.equal(qwenEndpoint('https://provider.example/chat/completions'),'https://provider.example/chat/completions');assert.throws(()=>qwenEndpoint('http://provider.example/v1'));assert.throws(()=>qwenEndpoint('https://name:password@provider.example/v1'));
+let count=0;globalThis.fetch=async(url,options)=>{count++;assert.equal(url,'https://provider.example/v1/chat/completions');assert.equal(options.headers.authorization,'Bearer test-qwen-key');assert.equal(options.redirect,'manual');const body=JSON.parse(options.body);assert.equal(body.model,'qwen3.8-flash');assert.equal(body.response_format.type,'json_object');assert.equal(body.messages[0].role,'system');assert(body.messages[0].content.includes('recognizedText'));assert.equal(body.messages.at(-1).content[1].image_url.url,png);assert.equal(body.messages.at(-1).content[0].type,'text');return Response.json({choices:[{finish_reason:'stop',message:{content:'```json\n'+JSON.stringify({answer:'落地时间为 2 s。',recognizedText:'题干',simulation:{model:'none'}})+'\n```'}}]});};
+const result=await solveWithModel(env,'物理老师','请识别',png,[{role:'user',content:'前文'}]);assert.equal(result.answer,'落地时间为 2 s。');assert.equal(count,1);
+globalThis.fetch=async()=>new Response('<!DOCTYPE html><title>Login</title>',{headers:{'content-type':'text/html'}});await assert.rejects(solveWithModel(env,'','题目',null,[]),{message:'INVALID_MODEL_RESPONSE'});
+globalThis.fetch=async()=>new Response('not found',{status:404});await assert.rejects(solveWithModel(env,'','题目',null,[]),e=>e.status===404);
+let redirects=0;globalThis.fetch=async(url,options)=>{redirects++;assert.equal(options.redirect,'manual');return new Response(null,{status:307,headers:{location:'https://other.example/chat/completions'}});};await assert.rejects(solveWithModel(env,'','题目',null,[]),e=>e.status===307);assert.equal(redirects,1);
+globalThis.fetch=async()=>Response.json({choices:[{finish_reason:'length',message:{content:'{}'}}]});await assert.rejects(solveWithModel(env,'','题目',null,[]),{message:'INCOMPLETE_MODEL_RESPONSE'});
+globalThis.fetch=original;
+console.log('Qwen compatible image request, exact model, structured answer, endpoint validation and HTML/404/incomplete failures pass. Live provider not tested without key.');

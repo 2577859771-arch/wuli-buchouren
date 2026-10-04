@@ -1,0 +1,155 @@
+@title 开普勒定律
+@sub 椭圆轨道、面积定律与周期定律
+@badge 速度 Verlet 积分 · 步长 1/40000 年
+@hud
+      <span class="k"></span><span class="k">仿真</span><span class="th">理论</span>
+      <span class="k"><i class="v">t</i> / 年</span><span id="h-t">0.000</span><span class="th">—</span>
+      <span class="k"><i class="v">r</i> / AU</span><span id="h-r">0.000</span><span class="th">—</span>
+      <span class="k"><i class="v">v</i> / AU·年⁻¹</span><span id="h-v">0.000</span><span class="th" id="h-vt">0.000</span>
+@legend
+      <div><span class="sw" style="background:var(--ghost)"></span><span class="sw" style="background:var(--back);margin-left:-4px"></span>相等时间扫过的面积</div>
+      <div><span class="sw bar" style="background:var(--f-g)"></span>引力</div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>速度</div>
+@aside
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="k">初速倍数</label><input type="range" id="k" min="0.6" max="1.3" step="0.01" value="1.2"><output id="ko"></output></div>
+      <div class="row"><label for="ns">扇形数</label><input type="range" id="ns" min="6" max="24" step="1" value="12"><output id="nso"></output></div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="0.5">0.5 年/秒</option><option value="0.25" selected>0.25 年/秒</option><option value="1">1 年/秒</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">开始</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tSec" checked>面积扇形</label>
+        <label><input type="checkbox" id="tVec" checked>引力与速度</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note">行星从距太阳 1 AU 处沿切向出发，初速是该处圆轨道速度 2π AU/年 的若干倍。倍数为 1 时轨道是圆，偏离 1 越多越扁；达到 √2 倍时会逃逸。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq">第一定律：轨道是椭圆，太阳在一个焦点上</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq">第二定律：Δ<i class="v">S</i> = ½<i class="v">r</i><i class="v">v</i><sub>⊥</sub>Δ<i class="v">t</i> 恒定</div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq">第三定律：<i class="v">T</i>² ⁄ <i class="v">a</i>³ = 4π² ⁄ <i class="v">GM</i> = 1 年²/AU³</div><div class="sub" id="f3"></div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>理论</th><th>仿真</th><th>相对误差</th></tr></thead>
+        <tbody>
+          <tr><td>周期 <i class="v">T</i> / 年</td><td id="tT">—</td><td id="sT">—</td><td id="eT">—</td></tr>
+          <tr><td>半长轴 <i class="v">a</i> / AU</td><td id="tA">—</td><td id="sA">—</td><td id="eA">—</td></tr>
+          <tr><td>离心率 <i class="v">e</i></td><td id="tE">—</td><td id="sE">—</td><td id="eE">—</td></tr>
+          <tr><td><i class="v">T</i>² ⁄ <i class="v">a</i>³</td><td>1</td><td id="sK">—</td><td id="eK">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>扇形面积</h2>
+      <div class="tablewrap"><table class="cmp">
+        <thead><tr><th>#</th><th>面积 / AU²</th><th>理论</th><th>相对误差</th></tr></thead>
+        <tbody id="tb"><tr><td colspan="4" class="empty">点击「开始」</td></tr></tbody>
+      </table></div>
+      <p class="note">近日点附近扇形又短又宽，远日点附近又细又长，面积却相同。</p>
+    </section>
+@script
+const GM = 4*Math.PI*Math.PI, DT = 1/40000, SC = 2.5;   // 1 AU = 2.5 场景单位
+const P = {k:1.2, ns:12, speed:0.25};
+const S = {t:0, y:[1,0,0,0], ang:0, period:null, rmin:1, rmax:1, secA:0, secPts:[], secI:0, nextSec:0};
+const pl = Lab.player($('goBtn'));
+const mats = {
+  sun: new THREE.MeshBasicMaterial({color:0xffb627}), planet: Lab.std('--ghost', {roughness:0.4}),
+  orbit: Lab.lineMat('--ink-2'), th: Lab.dashMat('--theory', {dashSize:0.15, gapSize:0.1}),
+  s1: Lab.basic('--ghost', {transparent:true, opacity:0.28, side:THREE.DoubleSide, depthWrite:false}),
+  s2: Lab.basic('--back', {transparent:true, opacity:0.28, side:THREE.DoubleSide, depthWrite:false})
+};
+Lab.floor(scene, 40, 40, -0.6);
+const sun = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 20), mats.sun); scene.add(sun);
+const sunLight = new THREE.PointLight(0xffe2a0, 0.8, 30); scene.add(sunLight);
+const planet = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), mats.planet); planet.castShadow = true; scene.add(planet);
+const path = Lab.polyline(mats.orbit, 6000); scene.add(path);
+const thOrbit = Lab.polyline(mats.th, 400); scene.add(thOrbit);
+const sectors = new THREE.Group(); scene.add(sectors);
+const aG = Lab.arrow('--f-g', 0.12), aV = Lab.arrow('--ink', 0.12); scene.add(aG, aV);
+stage.overheadLight(0, 0, 12, 2);
+
+function theory(){
+  const r0 = 1, v0 = P.k*Math.sqrt(GM/r0), E = v0*v0/2 - GM/r0, a = -GM/(2*E), h = r0*v0;
+  const e = Math.sqrt(Math.max(0, 1 + 2*E*h*h/(GM*GM)));
+  return {v0, a, h, e, T: 2*Math.PI*Math.sqrt(a*a*a/GM), rp: a*(1-e), ra: a*(1+e)};
+}
+const w3 = (x, z, y) => new THREE.Vector3(x*SC, y||0, z*SC);
+
+function reset(){
+  const th = theory();
+  S.t = 0; S.y = [1, 0, 0, -th.v0]; S.ang = 0; S.period = null; S.rmin = 1; S.rmax = 1;
+  S.secA = 0; S.secPts = [w3(1,0)]; S.secI = 0; S.nextSec = th.T/P.ns;
+  path.clear(); while (sectors.children.length){ const m = sectors.children.pop(); m.geometry.dispose(); }
+  // 理论椭圆：焦点在原点，近日点方向由起点决定
+  const sgn = P.k >= 1 ? 1 : -1, pts = [];
+  for (let i=0;i<=360;i++){ const f = i/360*2*Math.PI, r = th.a*(1 - th.e*th.e)/(1 + th.e*Math.cos(f)); pts.push(w3(sgn*r*Math.cos(f), r*Math.sin(f))); }
+  thOrbit.setPoints(pts);
+  $('tb').innerHTML = '<tr><td colspan="4" class="empty">点击「开始」</td></tr>';
+  const R = th.ra*SC, D = R*2.1 + 3;
+  const cx = sgn*(-(th.ra - th.rp)/2)*SC;
+  stage.setHome(new THREE.Vector3(cx, 0, 0), new THREE.Vector3(cx + D*0.15, D*0.75, D*0.75));
+  pl.set('idle'); formulas(); view();
+}
+pl.onRestart = reset;
+function acc(x, z){ const r2 = x*x + z*z, r = Math.sqrt(r2), k = -GM/(r2*r); return [k*x, k*z]; }
+function step(){
+  const y = S.y, a0 = acc(y[0], y[1]);
+  const xh = y[0] + y[2]*DT + 0.5*a0[0]*DT*DT, zh = y[1] + y[3]*DT + 0.5*a0[1]*DT*DT;
+  const a1 = acc(xh, zh);
+  const vx = y[2] + 0.5*(a0[0]+a1[0])*DT, vz = y[3] + 0.5*(a0[1]+a1[1])*DT;
+  S.secA += 0.5*Math.abs(y[0]*zh - xh*y[1]);
+  let d = Math.atan2(zh, xh) - Math.atan2(y[1], y[0]); if (d > Math.PI) d -= 2*Math.PI; if (d < -Math.PI) d += 2*Math.PI;
+  const angPrev = S.ang; S.ang += Math.abs(d);
+  S.y = [xh, zh, vx, vz]; S.t += DT;
+  const r = Math.hypot(xh, zh); if (r < S.rmin) S.rmin = r; if (r > S.rmax) S.rmax = r;
+  if (S.period === null && S.ang >= 2*Math.PI){ S.period = S.t - DT + DT*(2*Math.PI - angPrev)/(S.ang - angPrev); formulas(); }
+  if (Math.round(S.t/DT) % 25 === 0) S.secPts.push(w3(xh, zh));
+  if (S.secI < P.ns && S.t >= S.nextSec){ S.secPts.push(w3(xh, zh)); closeSector(); }
+}
+function closeSector(){
+  const th = theory(), pts = S.secPts, pos = [];
+  for (let i=0;i<pts.length-1;i++) pos.push(0,0.001,0, pts[i].x,0.001,pts[i].z, pts[i+1].x,0.001,pts[i+1].z);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  sectors.add(new THREE.Mesh(g, S.secI % 2 ? mats.s2 : mats.s1));
+  const tb = $('tb'); if (S.secI === 0) tb.innerHTML = '';
+  const At = th.h*(th.T/P.ns)/2, tr = document.createElement('tr');
+  tr.innerHTML = `<td>${S.secI+1}</td><td>${S.secA.toFixed(5)}</td><td>${At.toFixed(5)}</td><td>${Lab.relErr(At, S.secA)}</td>`;
+  tb.appendChild(tr); tr.scrollIntoView({block:'nearest'});
+  S.secI++; S.secA = 0; S.secPts = [pts[pts.length-1]]; S.nextSec = th.T/P.ns*(S.secI+1);
+  if (S.secI >= P.ns){ pl.set('done'); }
+}
+const drive = Lab.stepper(DT, () => { step(); if (pl.phase !== 'run') return false; });
+function formulas(){
+  const th = theory();
+  Lab.text('f1', `a = ${th.a.toFixed(4)} AU，e = ${th.e.toFixed(4)}，近日距 ${th.rp.toFixed(3)} AU，远日距 ${th.ra.toFixed(3)} AU`);
+  Lab.text('f2', `每个扇形 Δt = T/${P.ns} = ${(th.T/P.ns).toFixed(4)} 年，理论面积 ${(th.h*th.T/P.ns/2).toFixed(5)} AU²`);
+  Lab.text('f3', `T = ${th.T.toFixed(4)} 年，a³ = ${(th.a**3).toFixed(4)}，T² = ${(th.T**2).toFixed(4)}`);
+  Lab.text('tT', th.T.toFixed(4)); Lab.text('tA', th.a.toFixed(4)); Lab.text('tE', th.e.toFixed(4));
+  if (S.period !== null){
+    const a = (S.rmin + S.rmax)/2, e = (S.rmax - S.rmin)/(S.rmax + S.rmin), K = S.period**2/a**3;
+    Lab.text('sT', S.period.toFixed(4)); Lab.text('eT', Lab.relErr(th.T, S.period));
+    Lab.text('sA', a.toFixed(4)); Lab.text('eA', Lab.relErr(th.a, a));
+    Lab.text('sE', e.toFixed(4)); Lab.text('eE', th.e < 1e-3 ? '圆轨道' : Lab.relErr(th.e, e));
+    Lab.text('sK', K.toFixed(4)); Lab.text('eK', Lab.relErr(1, K));
+  } else ['sT','eT','sA','eA','sE','eE','sK','eK'].forEach(id => Lab.text(id, id[0]==='s' ? '测量中…' : '—'));
+}
+function view(){
+  const [x, z, vx, vz] = S.y, p = w3(x, z), r = Math.hypot(x, z), v = Math.hypot(vx, vz), th = theory();
+  planet.position.copy(p);
+  if (pl.phase === 'run') path.push(p);
+  sectors.visible = $('tSec').checked;
+  const on = $('tVec').checked;
+  aG.show(p, new THREE.Vector3(-x, 0, -z).normalize().multiplyScalar(GM/(r*r)), 0.05, on);
+  aV.show(p, new THREE.Vector3(vx, 0, vz), 0.12, on);
+  Lab.text('h-t', S.t.toFixed(3)); Lab.text('h-r', r.toFixed(4));
+  Lab.text('h-v', v.toFixed(4)); Lab.text('h-vt', Math.sqrt(GM*(2/r - 1/th.a)).toFixed(4));
+}
+stage.onFrame(dt => { if (pl.phase === 'run'){ drive(dt, P.speed); view(); } });
+Lab.range('k', v => v.toFixed(2)+'×', v => { P.k = v; reset(); });
+Lab.range('ns', v => v, v => { P.ns = v; reset(); });
+P.k = +$('k').value; P.ns = +$('ns').value; P.speed = +$('speed').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('resetBtn').addEventListener('click', reset);
+['tSec','tVec'].forEach(id => $(id).addEventListener('change', view));
+reset();

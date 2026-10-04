@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>碰撞与动量守恒 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="气垫导轨碰撞三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>碰撞与动量守恒</h1>
+      <p>气垫导轨上的一维碰撞</p>
+      <span class="engine" id="engine">物理引擎加载中…</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k"></span><span class="k">滑块 1</span><span class="k">滑块 2</span>
+      <span class="k"><i class="v">v</i> / m·s⁻¹</span><span id="h-v1">0.000</span><span id="h-v2">0.000</span>
+      <span class="k"><i class="v">p</i> / kg·m·s⁻¹</span><span id="h-p1">0.000</span><span id="h-p2">0.000</span>
+      <span class="k">总动量</span><span id="h-p">0.000</span><span></span>
+      <span class="k">总动能 / J</span><span id="h-k">0.000</span><span></span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--ball)"></span>滑块 1 及其频闪</div>
+      <div><span class="sw" style="background:var(--back)"></span>滑块 2 及其频闪</div>
+      <div><span class="sw bar" style="background:var(--ink)"></span>速度矢量</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>参数</h2>
+      <div class="row"><label for="m1">质量 <i class="v">m</i>₁</label><input type="range" id="m1" min="0.2" max="5" step="0.1" value="1"><output id="m1o"></output></div>
+      <div class="row"><label for="m2">质量 <i class="v">m</i>₂</label><input type="range" id="m2" min="0.2" max="5" step="0.1" value="2"><output id="m2o"></output></div>
+      <div class="row"><label for="v1">速度 <i class="v">v</i>₁</label><input type="range" id="v1" min="-4" max="4" step="0.1" value="2"><output id="v1o"></output></div>
+      <div class="row"><label for="v2">速度 <i class="v">v</i>₂</label><input type="range" id="v2" min="-4" max="4" step="0.1" value="0"><output id="v2o"></output></div>
+      <div class="row"><label for="e">恢复系数 <i class="v">e</i></label><input type="range" id="e" min="0" max="1" step="0.01" value="1"><output id="eo"></output></div>
+      <div class="btns" role="group" aria-label="碰撞类型">
+        <button class="chip" data-e="1">弹性碰撞</button>
+        <button class="chip" data-e="0.5">非弹性碰撞</button>
+        <button class="chip" data-e="0">完全非弹性</button>
+      </div>
+      <div class="row"><label for="speed">播放速度</label>
+        <select id="speed"><option value="1">1×</option><option value="0.5" selected>0.5×</option><option value="0.25">0.25×</option></select><span></span></div>
+      <div class="btns"><button class="primary" id="goBtn">开始</button><button id="resetBtn">重置</button></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tGhost" checked>频闪滑块</label>
+        <label><input type="checkbox" id="tVec" checked>速度矢量</label>
+        <label><input type="checkbox" id="tShadow" checked>实时阴影</label>
+      </div>
+      <p class="note" id="warn"></p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">m</i>₁<i class="v">v</i>₁ + <i class="v">m</i>₂<i class="v">v</i>₂ = <i class="v">m</i>₁<i class="v">v</i>₁′ + <i class="v">m</i>₂<i class="v">v</i>₂′</div><div class="sub">系统所受合外力为零，总动量守恒</div></div>
+      <div class="f"><div class="eq"><i class="v">e</i> = (<i class="v">v</i>₂′ − <i class="v">v</i>₁′) ⁄ (<i class="v">v</i>₁ − <i class="v">v</i>₂)</div><div class="sub">e = 1 弹性，0 &lt; e &lt; 1 非弹性，e = 0 碰后共速</div></div>
+      <div class="f"><div class="eq"><i class="v">v</i>₁′ = [(<i class="v">m</i>₁ − <i class="v">em</i>₂)<i class="v">v</i>₁ + (1+<i class="v">e</i>)<i class="v">m</i>₂<i class="v">v</i>₂] ⁄ (<i class="v">m</i>₁+<i class="v">m</i>₂)</div><div class="sub" id="f1"></div></div>
+      <div class="f"><div class="eq"><i class="v">v</i>₂′ = [(<i class="v">m</i>₂ − <i class="v">em</i>₁)<i class="v">v</i>₂ + (1+<i class="v">e</i>)<i class="v">m</i>₁<i class="v">v</i>₁] ⁄ (<i class="v">m</i>₁+<i class="v">m</i>₂)</div><div class="sub" id="f2"></div></div>
+      <div class="f"><div class="eq">Δ<i class="v">E</i>k = ½ · <i class="v">m</i>₁<i class="v">m</i>₂⁄(<i class="v">m</i>₁+<i class="v">m</i>₂) · (1 − <i class="v">e</i>²)(<i class="v">v</i>₁ − <i class="v">v</i>₂)²</div><div class="sub" id="f3"></div></div>
+      <table class="cmp">
+        <thead><tr><th></th><th>碰前</th><th>碰后·理论</th><th>碰后·仿真</th></tr></thead>
+        <tbody>
+          <tr><td><i class="v">v</i>₁</td><td id="b-v1"></td><td id="t-v1"></td><td id="s-v1">—</td></tr>
+          <tr><td><i class="v">v</i>₂</td><td id="b-v2"></td><td id="t-v2"></td><td id="s-v2">—</td></tr>
+          <tr><td>总动量</td><td id="b-p"></td><td id="t-p"></td><td id="s-p">—</td></tr>
+          <tr><td>总动能</td><td id="b-k"></td><td id="t-k"></td><td id="s-k">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>动量–时间图像</h2>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chart-legend">
+        <span><span class="sw bar" style="background:var(--ball)"></span><i class="v">p</i>₁</span>
+        <span><span class="sw bar" style="background:var(--back)"></span><i class="v">p</i>₂</span>
+        <span><span class="sw bar" style="background:var(--ink)"></span>总动量</span>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const DT = 1/240, TRACK = 4.2, Y0 = 0.32;
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+let R = null;
+
+const P = {m1:1, m2:2, v1:2, v2:0, e:1, speed:0.5};
+Lab.applyQuestion(P);
+const S = {phase:'idle', t:0, steps:0, x:[-1.5, 1.5], v:[2, 0], hit:null, after:null, world:null, bodies:null};
+
+const mats = {
+  c1: Lab.std('--ball', {roughness:0.45}), c2: Lab.std('--back', {roughness:0.45}),
+  g1: Lab.std('--ball', {transparent:true, opacity:0.28}), g2: Lab.std('--back', {transparent:true, opacity:0.28}),
+  rail: Lab.std('--ink-2', {roughness:0.5, metalness:0.3}), floor: Lab.std('--wall', {roughness:1}), stop: Lab.std('--ink-2')
+};
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), mats.floor); floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+const fg = Lab.grid(10, 4, 0.5); fg.rotation.x = -Math.PI/2; fg.position.set(-5, 0.001, 2); scene.add(fg);
+// 导轨
+const rail = new THREE.Mesh(new THREE.BoxGeometry(TRACK*2 + 0.4, 0.1, 0.22), mats.rail); rail.position.set(0, 0.15, 0); rail.castShadow = true; rail.receiveShadow = true; scene.add(rail);
+[-1,1].forEach(s => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mats.stop); leg.position.set(s*TRACK, 0.05, 0); scene.add(leg);
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.3), mats.stop); st.position.set(s*(TRACK+0.18), 0.3, 0); scene.add(st); });
+const tk = []; for (let x=-4; x<=4; x+=0.5) tk.push(x, 0.201, 0.11, x, 0.201, 0.16 + (x%1===0?0.05:0));
+const tkg = new THREE.BufferGeometry(); tkg.setAttribute('position', new THREE.Float32BufferAttribute(tk, 3));
+scene.add(new THREE.LineSegments(tkg, Lab.lineMat('--paper')));
+
+const carts = [], ghosts = new THREE.Group(); scene.add(ghosts);
+function cartW(m){ return 0.22 + 0.16*Math.cbrt(m); }
+function makeCart(mat){ const g = new THREE.Mesh(new THREE.BoxGeometry(1, 0.22, 0.34), mat); g.castShadow = true; scene.add(g); return g; }
+carts.push(makeCart(mats.c1), makeCart(mats.c2));
+const lab1 = Lab.label('1', '--paper', 0.16), lab2 = Lab.label('2', '--paper', 0.16); scene.add(lab1, lab2);
+const arrows = [Lab.arrow('--ink', 0.08), Lab.arrow('--ink', 0.08)]; arrows.forEach(a => scene.add(a));
+stage.overheadLight(0, 0, 5, 1);
+stage.setHome(new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(1.2, 3.2, 6.6));
+
+const chart = Lab.Chart($('chart'), {xLabel:'t / s', series:[{color:'--ball'}, {color:'--back'}, {color:'--ink', width:2.2}]});
+
+function theoryAfter(){
+  const {m1, m2, v1, v2, e} = P, M = m1 + m2;
+  return [((m1 - e*m2)*v1 + (1+e)*m2*v2)/M, ((m2 - e*m1)*v2 + (1+e)*m1*v1)/M];
+}
+const willHit = () => P.v1 > P.v2;
+
+function buildWorld(){
+  if (!R) return;
+  if (S.world){ try{ S.world.free(); }catch(e){} }
+  const w = new R.World({x:0, y:0, z:0}); w.timestep = DT;
+  const mk = (x, v, m) => {
+    const b = w.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(x, 0, 0).setLinvel(v, 0, 0).lockRotations().enabledTranslations(true, false, false).setCcdEnabled(true));
+    w.createCollider(R.ColliderDesc.cuboid(cartW(m)/2, 0.11, 0.17).setMass(m).setFriction(0).setRestitution(P.e)
+      .setRestitutionCombineRule(R.CoefficientCombineRule.Max).setFrictionCombineRule(R.CoefficientCombineRule.Min), b);
+    return b;
+  };
+  S.world = w; S.bodies = [mk(S.x[0], S.v[0], P.m1), mk(S.x[1], S.v[1], P.m2)];
+}
+
+function reset(){
+  S.phase = 'idle'; S.t = 0; S.steps = 0; S.x = [-1.5, 1.5]; S.v = [P.v1, P.v2]; S.hit = null; S.after = null;
+  [P.m1, P.m2].forEach((m, i) => carts[i].scale.set(cartW(m), 1, 1));
+  while (ghosts.children.length) ghosts.children.pop();
+  buildWorld();
+  chart.clear(); chart.setXMax(3); pushChart(); chart.draw();
+  $('goBtn').textContent = '开始';
+  $('warn').textContent = willHit() ? '' : '按当前速度两滑块不会相遇：需要 v₁ > v₂。';
+  updateTable(); updateView();
+}
+function pushChart(){
+  chart.push(0, S.t, P.m1*S.v[0]); chart.push(1, S.t, P.m2*S.v[1]); chart.push(2, S.t, P.m1*S.v[0] + P.m2*S.v[1]);
+}
+function gap(){ return (S.x[1] - cartW(P.m2)/2) - (S.x[0] + cartW(P.m1)/2); }
+function step(){
+  if (R){
+    S.world.step();
+    S.bodies.forEach((b, i) => { S.x[i] = b.translation().x; S.v[i] = b.linvel().x; });
+  } else {
+    // 内置解析：匀速运动 + 接触瞬间按恢复系数更新速度
+    S.x[0] += S.v[0]*DT; S.x[1] += S.v[1]*DT;
+    if (gap() <= 0 && S.v[0] > S.v[1]){ const va = theoryAfter(); S.v = [va[0], va[1]]; const o = -gap(); S.x[0] -= o/2; S.x[1] += o/2; }
+  }
+  S.t += DT; S.steps++;
+  if (S.hit === null && gap() < 0.004) S.hit = S.t;
+  if (S.hit !== null && S.after === null && S.t - S.hit > 0.2){ S.after = [S.v[0], S.v[1]]; updateTable(); }
+  if (S.steps % 24 === 0) addGhosts();
+  if (S.steps % 4 === 0) pushChart();
+  const out = S.x.some((x, i) => Math.abs(x) > TRACK - cartW(i ? P.m2 : P.m1)/2);
+  if (out || S.t > 12){ S.phase = 'done'; $('goBtn').textContent = '再来一次'; return false; }
+}
+const drive = Lab.stepper(DT, step);
+function addGhosts(){
+  [0,1].forEach(i => { const g = new THREE.Mesh(carts[i].geometry, i ? mats.g2 : mats.g1); g.scale.copy(carts[i].scale); g.position.set(S.x[i], Y0, 0); ghosts.add(g); });
+}
+function KE(v){ return 0.5*P.m1*v[0]*v[0] + 0.5*P.m2*v[1]*v[1]; }
+function updateTable(){
+  const va = theoryAfter(), f = Lab.f;
+  $('b-v1').textContent = f(P.v1); $('b-v2').textContent = f(P.v2);
+  $('b-p').textContent = f(P.m1*P.v1 + P.m2*P.v2); $('b-k').textContent = f(KE([P.v1, P.v2]));
+  const hit = willHit();
+  $('t-v1').textContent = hit ? f(va[0]) : '—'; $('t-v2').textContent = hit ? f(va[1]) : '—';
+  $('t-p').textContent = hit ? f(P.m1*va[0] + P.m2*va[1]) : '—'; $('t-k').textContent = hit ? f(KE(va)) : '—';
+  const a = S.after;
+  $('s-v1').textContent = a ? f(a[0]) : '—'; $('s-v2').textContent = a ? f(a[1]) : '—';
+  $('s-p').textContent = a ? f(P.m1*a[0] + P.m2*a[1]) : '—'; $('s-k').textContent = a ? f(KE(a)) : '—';
+  $('f1').textContent = hit ? `v₁′ = ${va[0].toFixed(4)} m/s` : '两滑块不会相碰';
+  $('f2').textContent = hit ? `v₂′ = ${va[1].toFixed(4)} m/s` : '';
+  const mu = P.m1*P.m2/(P.m1+P.m2), dE = 0.5*mu*(1 - P.e*P.e)*Math.pow(P.v1 - P.v2, 2);
+  $('f3').textContent = hit ? `损失动能 ${dE.toFixed(4)} J（占碰前 ${(dE/Math.max(KE([P.v1,P.v2]),1e-9)*100).toFixed(1)}%）` : '';
+}
+function updateView(){
+  [0,1].forEach(i => carts[i].position.set(S.x[i], Y0, 0));
+  lab1.position.set(S.x[0] - 0.03, Y0 + 0.2, 0); lab2.position.set(S.x[1] - 0.03, Y0 + 0.2, 0);
+  const on = $('tVec').checked;
+  arrows.forEach((a, i) => a.show(new THREE.Vector3(S.x[i], Y0 + 0.36, 0), new THREE.Vector3(S.v[i], 0, 0), 0.35, on));
+  ghosts.visible = $('tGhost').checked;
+  const f = Lab.f;
+  $('h-v1').textContent = f(S.v[0]); $('h-v2').textContent = f(S.v[1]);
+  $('h-p1').textContent = f(P.m1*S.v[0]); $('h-p2').textContent = f(P.m2*S.v[1]);
+  $('h-p').textContent = f(P.m1*S.v[0] + P.m2*S.v[1]); $('h-k').textContent = f(KE(S.v));
+}
+
+stage.onFrame(dt => { if (S.phase === 'run'){ drive(dt, P.speed); updateView(); chart.draw(); } });
+
+Lab.range('m1', v => v.toFixed(1)+' kg', v => { P.m1 = v; reset(); });
+Lab.range('m2', v => v.toFixed(1)+' kg', v => { P.m2 = v; reset(); });
+Lab.range('v1', v => v.toFixed(1)+' m/s', v => { P.v1 = v; reset(); });
+Lab.range('v2', v => v.toFixed(1)+' m/s', v => { P.v2 = v; reset(); });
+const eR = Lab.range('e', v => v.toFixed(2), v => { P.e = v; reset(); });
+document.querySelectorAll('[data-e]').forEach(b => b.addEventListener('click', () => eR.set(+b.dataset.e)));
+P.m1 = +$('m1').value; P.m2 = +$('m2').value; P.v1 = +$('v1').value; P.v2 = +$('v2').value; P.e = +$('e').value; P.speed = +$('speed').value;
+$('speed').addEventListener('change', e => P.speed = +e.target.value);
+$('goBtn').addEventListener('click', () => {
+  if (S.phase === 'done') reset();
+  if (S.phase !== 'run'){ if (S.phase === 'idle') addGhosts(); S.phase = 'run'; $('goBtn').textContent = '暂停'; }
+  else { S.phase = 'pause'; $('goBtn').textContent = '继续'; }
+});
+$('resetBtn').addEventListener('click', reset);
+$('fitBtn').addEventListener('click', () => stage.goHome());
+['tGhost','tVec'].forEach(id => $(id).addEventListener('change', updateView));
+$('tShadow').addEventListener('change', e => { stage.renderer.shadowMap.enabled = e.target.checked; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); });
+
+reset();
+Lab.loadRapier().then(r => {
+  R = r;
+  if (R) Lab.badge($('engine'), 'Rapier 0.12 · 步长 1/240 s', true);
+  else Lab.badge($('engine'), 'Rapier 未能加载，已改用内置碰撞公式', false);
+  reset();
+});
+})();
+</script>
+</body>
+</html>

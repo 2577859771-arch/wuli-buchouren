@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>点电荷的电场 · 物理实验 3D</title>
+<link rel="stylesheet" href="../lib/lab.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c" class="view" aria-label="点电荷的电场三维场景，可拖动旋转、滚轮缩放"></canvas>
+    <div class="title">
+      <a href="../index.html">返回实验列表</a>
+      <h1>点电荷的电场</h1>
+      <p>三维电场线、等势面切片与场强叠加</p>
+      <span class="engine ok" id="engine">电场线 RK2 追踪 · 步长 0.03</span>
+    </div>
+    <div class="stage-tools"><button class="chip" id="fitBtn">复位视角</button></div>
+    <div class="hud">
+      <span class="k">探针</span><span class="k">叠加公式</span><span class="th">−∇φ 数值</span>
+      <span class="k"><i class="v">E<sub>x</sub></i></span><span id="h-ex">0</span><span class="th" id="h-gx">0</span>
+      <span class="k"><i class="v">E<sub>y</sub></i></span><span id="h-ey">0</span><span class="th" id="h-gy">0</span>
+      <span class="k">|<i class="v">E</i>|</span><span id="h-e">0</span><span class="th" id="h-g">0</span>
+      <span class="k">电势 <i class="v">φ</i></span><span id="h-v">0</span><span class="th">—</span>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:var(--f-g)"></span>正电荷</div>
+      <div><span class="sw" style="background:var(--ghost)"></span>负电荷</div>
+      <div><span class="sw bar" style="background:var(--ink-2)"></span>电场线</div>
+      <div><span class="sw bar" style="background:var(--ground)"></span>探针处场强</div>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h2>电荷配置</h2>
+      <div class="btns" role="group" aria-label="预设">
+        <button class="chip" data-p="1,0">单个正电荷</button><button class="chip" data-p="1,-1">等量异种</button>
+        <button class="chip" data-p="1,1">等量同种</button><button class="chip" data-p="2,-1">+2q 与 −q</button>
+      </div>
+      <div class="row"><label for="q1">电荷 <i class="v">q</i>₁</label><input type="range" id="q1" min="-3" max="3" step="1" value="1"><output id="q1o"></output></div>
+      <div class="row"><label for="q2">电荷 <i class="v">q</i>₂</label><input type="range" id="q2" min="-3" max="3" step="1" value="-1"><output id="q2o"></output></div>
+      <div class="row"><label for="d">间距 <i class="v">d</i></label><input type="range" id="d" min="1" max="5" step="0.1" value="3"><output id="do"></output></div>
+      <div class="row"><label for="nl">线密度</label><input type="range" id="nl" min="6" max="24" step="1" value="14"><output id="nlo"></output></div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tLines" checked>电场线</label>
+        <label><input type="checkbox" id="tPlane" checked>等势面切片</label>
+        <label><input type="checkbox" id="tProbe" checked>探针</label>
+        <label><input type="checkbox" id="tShadow">实时阴影</label>
+      </div>
+    </section>
+    <section>
+      <h2>探针位置</h2>
+      <div class="row"><label for="px">x</label><input type="range" id="px" min="-4.5" max="4.5" step="0.05" value="0"><output id="pxo"></output></div>
+      <div class="row"><label for="py">y</label><input type="range" id="py" min="-3" max="3" step="0.05" value="1"><output id="pyo"></output></div>
+      <p class="note">在单位制 <i class="v">k</i> = 1 下，场强由叠加公式直接算出；右侧对照列用电势的数值梯度 −Δφ⁄Δ<i class="v">x</i> 求得，两者应当一致。</p>
+    </section>
+    <section>
+      <h2>公式对照</h2>
+      <div class="f"><div class="eq"><i class="v">E</i> = Σ <i class="v">kq<sub>i</sub></i> ⁄ <i class="v">r<sub>i</sub></i>² · <i class="v">r̂<sub>i</sub></i></div><div class="sub">场强是矢量叠加</div></div>
+      <div class="f"><div class="eq"><i class="v">φ</i> = Σ <i class="v">kq<sub>i</sub></i> ⁄ <i class="v">r<sub>i</sub></i>，<i class="v">E</i> = −∇<i class="v">φ</i></div><div class="sub">电势是标量叠加；电场线处处垂直于等势面</div></div>
+      <div class="f"><div class="eq">电场线条数 ∝ 电荷量（高斯定理）</div><div class="sub" id="fcount"></div></div>
+      <p class="note">切片上暖色为高电势、冷色为低电势，细线是等势线。</p>
+    </section>
+  </aside>
+</div>
+<script src="../lib/three.min.js"></script>
+<script src="../lib/OrbitControls.js"></script>
+<script src="../lib/question-runtime.js"></script>
+<script src="../lib/lab.js"></script>
+<script src="../lib/question-loader.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = Lab.createStage($('c'));
+const {scene} = stage;
+$('fitBtn').addEventListener('click', () => stage.goHome());
+Lab.bindShadow(stage, 'tShadow');
+const P = {q1:1, q2:-1, d:3, nl:14, px:0, py:1};
+const mats = { pos: Lab.std('--f-g', {roughness:0.3, emissive:0x220800}), neg: Lab.std('--ghost', {roughness:0.3}),
+  line: Lab.lineMat('--ink-2', {transparent:true, opacity:0.75}) };
+const linesG = new THREE.Group(); scene.add(linesG);
+const chargeG = new THREE.Group(); scene.add(chargeG);
+const aE = Lab.arrow('--ground', 0.14); scene.add(aE);
+const probe = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), Lab.std('--ground')); scene.add(probe);
+// 等势面切片
+const PW = 10, PH = 6.4, cv = document.createElement('canvas'); cv.width = 400; cv.height = 256;
+const tex = new THREE.CanvasTexture(cv);
+const plane = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0.85, side:THREE.DoubleSide, depthWrite:false}));
+scene.add(plane);
+stage.setHome(new THREE.Vector3(0, 0, 0), new THREE.Vector3(3.2, 4.2, 9.5));
+stage.overheadLight(0, 0, 6, 4);
+
+const charges = () => [{q:P.q1, x:-P.d/2}, {q:P.q2, x:P.d/2}].filter(c => c.q !== 0);
+function field(x, y, z){
+  let ex=0, ey=0, ez=0;
+  for (const c of charges()){ const dx = x-c.x, r2 = dx*dx+y*y+z*z, r3 = r2*Math.sqrt(r2); ex += c.q*dx/r3; ey += c.q*y/r3; ez += c.q*z/r3; }
+  return [ex, ey, ez];
+}
+function pot(x, y, z){ let v = 0; for (const c of charges()) v += c.q/Math.sqrt((x-c.x)**2 + y*y + z*z); return v; }
+
+function fib(n){ const pts = [], ga = Math.PI*(3 - Math.sqrt(5)); for (let i=0;i<n;i++){ const y = 1 - 2*(i+0.5)/n, r = Math.sqrt(1-y*y), t = ga*i; pts.push([Math.cos(t)*r, y, Math.sin(t)*r]); } return pts; }
+function trace(){
+  while (linesG.children.length){ const l = linesG.children.pop(); l.geometry.dispose(); }
+  const cs = charges(); if (!cs.length) return {};
+  const hasPos = cs.some(c => c.q > 0), src = cs.filter(c => hasPos ? c.q > 0 : c.q < 0), dir = hasPos ? 1 : -1;
+  const ends = {}; cs.forEach((c, i) => ends[i] = 0);
+  const h = 0.03, R0 = 0.14;
+  for (const c of src){
+    const n = Math.round(P.nl*Math.abs(c.q));
+    for (const s of fib(n)){
+      let p = [c.x + s[0]*R0, s[1]*R0, s[2]*R0]; const pts = [new THREE.Vector3(...p)];
+      for (let k=0;k<700;k++){
+        const f = (q) => { const e = field(q[0], q[1], q[2]), m = Math.hypot(...e) || 1; return [dir*e[0]/m, dir*e[1]/m, dir*e[2]/m]; };
+        const k1 = f(p), mid = [p[0]+k1[0]*h/2, p[1]+k1[1]*h/2, p[2]+k1[2]*h/2], k2 = f(mid);
+        p = [p[0]+k2[0]*h, p[1]+k2[1]*h, p[2]+k2[2]*h];
+        if (k % 2 === 0) pts.push(new THREE.Vector3(...p));
+        let hit = -1; cs.forEach((cc, i) => { if (cc !== c && Math.hypot(p[0]-cc.x, p[1], p[2]) < R0) hit = i; });
+        if (hit >= 0){ ends[hit]++; pts.push(new THREE.Vector3(cs[hit].x, 0, 0)); break; }
+        if (Math.hypot(...p) > 9) break;
+      }
+      linesG.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mats.line));
+    }
+  }
+  return {cs, ends, src};
+}
+function drawPlane(){
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, img = ctx.createImageData(W, H);
+  const hi = Lab.col('--f-g'), lo = Lab.col('--ghost'), mid = Lab.col('--paper');
+  const vals = new Float32Array(W*H);
+  for (let j=0;j<H;j++) for (let i=0;i<W;i++){ const x = (i/(W-1) - 0.5)*PW, y = (0.5 - j/(H-1))*PH; vals[j*W+i] = pot(x, y, 0); }
+  const step = 0.25;
+  for (let j=0;j<H;j++) for (let i=0;i<W;i++){
+    const v = vals[j*W+i], t = Math.max(-1, Math.min(1, v/1.5)), c = t >= 0 ? mid.clone().lerp(hi, t) : mid.clone().lerp(lo, -t);
+    // 等势线：相邻像素跨越等势值
+    const a = Math.floor(v/step), b = i < W-1 ? Math.floor(vals[j*W+i+1]/step) : a, d = j < H-1 ? Math.floor(vals[(j+1)*W+i]/step) : a;
+    const line = (a !== b || a !== d) && Math.abs(v) < 6;
+    const k = (j*W+i)*4, f = line ? 0.55 : 1;
+    img.data[k] = c.r*255*f; img.data[k+1] = c.g*255*f; img.data[k+2] = c.b*255*f; img.data[k+3] = line ? 255 : 150;
+  }
+  ctx.putImageData(img, 0, 0); tex.needsUpdate = true;
+}
+function build(){
+  while (chargeG.children.length){ const o = chargeG.children.pop(); if (o.geometry) o.geometry.dispose(); }
+  for (const c of charges()){
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.1 + 0.04*Math.abs(c.q), 24, 16), c.q > 0 ? mats.pos : mats.neg); m.position.set(c.x, 0, 0); m.castShadow = true; chargeG.add(m);
+    const l = Lab.label((c.q > 0 ? '+' : '−') + (Math.abs(c.q) === 1 ? '' : Math.abs(c.q)) + 'q', c.q > 0 ? '--f-g' : '--ghost', 0.3); l.position.set(c.x + 0.2, 0.35, 0); chargeG.add(l);
+  }
+  const r = trace(); drawPlane();
+  if (r.cs){
+    const parts = r.cs.map((c, i) => r.src.includes(c) ? `${c.q > 0 ? '+' : '−'}${Math.abs(c.q)}q 发出 ${Math.round(P.nl*Math.abs(c.q))} 条` : `${c.q > 0 ? '+' : '−'}${Math.abs(c.q)}q 接收 ${r.ends[i]} 条（按比例应为 ${Math.round(P.nl*Math.abs(c.q))} 条）`);
+    Lab.text('fcount', parts.join('；') + '。其余电场线延伸到无穷远。');
+  } else Lab.text('fcount', '没有电荷');
+  view();
+}
+function view(){
+  linesG.visible = $('tLines').checked; plane.visible = $('tPlane').checked;
+  const on = $('tProbe').checked; probe.visible = on;
+  const x = P.px, y = P.py; probe.position.set(x, y, 0);
+  const e = field(x, y, 0), h = 1e-4;
+  const gx = -(pot(x+h, y, 0) - pot(x-h, y, 0))/(2*h), gy = -(pot(x, y+h, 0) - pot(x, y-h, 0))/(2*h);
+  const E = Math.hypot(e[0], e[1]);
+  aE.show(new THREE.Vector3(x, y, 0), new THREE.Vector3(e[0], e[1], 0).normalize().multiplyScalar(Math.min(2, 0.4 + Math.log10(1 + E*10)*0.6)), 1, on && E > 1e-9);
+  const f = n => Math.abs(n) > 999 ? n.toExponential(2) : n.toFixed(4);
+  Lab.text('h-ex', f(e[0])); Lab.text('h-ey', f(e[1])); Lab.text('h-e', f(E));
+  Lab.text('h-gx', f(gx)); Lab.text('h-gy', f(gy)); Lab.text('h-g', f(Math.hypot(gx, gy)));
+  Lab.text('h-v', f(pot(x, y, 0)));
+}
+let timer = 0; const rebuild = () => { clearTimeout(timer); timer = setTimeout(build, 60); };
+const fq = v => (v > 0 ? '+' : v < 0 ? '−' : '') + (Math.abs(v) || 0) + (v ? 'q' : '');
+const q1R = Lab.range('q1', fq, v => { P.q1 = v; rebuild(); });
+const q2R = Lab.range('q2', fq, v => { P.q2 = v; rebuild(); });
+Lab.range('d', v => v.toFixed(1), v => { P.d = v; rebuild(); });
+Lab.range('nl', v => v+' 条/q', v => { P.nl = v; rebuild(); });
+Lab.range('px', v => v.toFixed(2), v => { P.px = v; view(); });
+Lab.range('py', v => v.toFixed(2), v => { P.py = v; view(); });
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { const [a, c] = b.dataset.p.split(',').map(Number); P.q1 = a; P.q2 = c; $('q1').value = a; $('q2').value = c; $('q1o').textContent = fq(a); $('q2o').textContent = fq(c); build(); }));
+['tLines','tPlane','tProbe'].forEach(id => $(id).addEventListener('change', view));
+Lab.onTheme(drawPlane);
+stage.renderer.shadowMap.enabled = false;
+build();
+})();
+</script>
+</body>
+</html>
