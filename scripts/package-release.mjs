@@ -5,11 +5,12 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const output=path.resolve(root,'../output');
-const name='物理不愁人-完整网站-WorkBuddy部署包-20261004';
+const name=process.env.PHYSICS_RELEASE_NAME||'物理不愁人-免费测试版-20261005';
+if(!/^[\p{L}\p{N}_-]+$/u.test(name))throw new Error('Invalid release name');
 const target=path.join(output,name),archive=target+'.zip';
 for(const location of [target,archive]){try{await access(location);throw new Error('Release already exists; choose a new name rather than overwrite.');}catch(error){if(error.code!=='ENOENT')throw error;}}
 await mkdir(target,{recursive:true});
-for(const part of ['public','worker','db','drizzle','package.json','package-lock.json','README.md','README-先读我.md','交给WorkBuddy-部署任务.md','.env.example','.gitignore','.dockerignore','Dockerfile','THIRD_PARTY_NOTICES.md','LIVE-SOURCE-SNAPSHOT.json','验收报告.md'])await cp(path.join(root,part),path.join(target,part),{recursive:true,filter:source=>!(/\.mp4\.sb-/.test(path.basename(source)))});
+for(const part of ['public','worker','db','drizzle','package.json','package-lock.json','README.md','README-先读我.md','交给WorkBuddy-部署任务.md','免费测试版上线说明.md','.env.example','.gitignore','.dockerignore','Dockerfile','THIRD_PARTY_NOTICES.md','LIVE-SOURCE-SNAPSHOT.json','验收报告.md'])await cp(path.join(root,part),path.join(target,part),{recursive:true,filter:source=>!(/\.mp4\.sb-/.test(path.basename(source)))});
 await mkdir(path.join(target,'scripts'));
 for(const n of await readdir(path.join(root,'scripts')))if(/^check.*\.mjs$/.test(n)||['build.mjs','serve.mjs','media-assets.mjs','package-release.mjs','export-brand.swift','qwen-test-image.swift','prepare-promo.swift','optimize-web-video.swift'].includes(n))await cp(path.join(root,'scripts',n),path.join(target,'scripts',n));
 await cp(path.join(root,'dist/server'),path.join(target,'dist/server'),{recursive:true});

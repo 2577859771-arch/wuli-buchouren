@@ -1,4 +1,5 @@
 /* Cinema edition. Real color tokens instead of inverting the entire page. */
+.beta-notice{display:flex;align-items:center;gap:18px;margin-top:24px;padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:var(--accent-soft);font-size:12px;line-height:1.8}.beta-notice strong{color:var(--green);white-space:nowrap}.beta-notice p{margin:0;flex:1;color:var(--muted)}.beta-notice a{white-space:nowrap}.beta-quota{padding:12px 22px;margin:0;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.8}@media(max-width:600px){.beta-notice{flex-wrap:wrap;gap:8px;padding:14px}.beta-notice p{flex-basis:100%;order:3}.beta-quota{padding:12px 16px}}
 .topbar .account-button{color:var(--ink)}
 .preview-notice{padding:10px 18px;background:#273b30;color:#d4ead6;text-align:center;font:11px/1.8 var(--cinema-font)}
 :root{--ink:#193b32;--muted:#63766d;--line:#dbe5de;--surface:#fff;--bg:#f3f5f0;--green:#277452;--accent-soft:#e8f1e8;--mint:#b4edbf;--shadow:0 12px 50px #173b2910;--cinema-font:"PingFang SC","Microsoft YaHei",system-ui,sans-serif}

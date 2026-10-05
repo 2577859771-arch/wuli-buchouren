@@ -11,6 +11,7 @@ const cookie=(token,age=1209600)=>`__Host-physics_session=${token}; Path=/; Http
 const db=env=>{if(!env.DB)throw new Error('DATABASE_UNAVAILABLE');return env.DB;};
 async function user(request,env){const match=(request.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-physics_session=([a-f0-9]{64})(?:;|$)/);if(!match)return null;const record=await db(env).prepare('SELECT u.id,u.email,u.email_verified_at FROM sessions s JOIN users u ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(match[1]),Date.now()).first();return record?{id:record.id,email:record.email,emailVerified:!!record.email_verified_at}:null;}
 async function limited(env,key,max,windowMs){const now=Date.now(),bucket=Math.floor(now/windowMs);const row=await db(env).prepare('INSERT INTO limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count').bind(key+':'+bucket,now+windowMs).first();return row.count<=max;}
+export function betaLimits(env){const cap=(value,fallback,max)=>{const n=Number(value);return Number.isInteger(n)&&n>=1&&n<=max?n:fallback;};return{user:cap(env.AI_DAILY_USER_LIMIT,5,100),ip:cap(env.AI_DAILY_IP_LIMIT,15,1000),global:cap(env.AI_DAILY_GLOBAL_LIMIT,20,1000)};}
 const clean=s=>String(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 export function retrieve(query,topic){const chars=[...new Set(query.replace(/[^\p{L}\p{N}]/gu,''))],pairs=[];for(let i=0;i<query.length-1;i++)pairs.push(query.slice(i,i+2));return COURSES.map(l=>{const title=l.title,text=clean(title+' '+l.description+' '+l.knowledge.join(' ')+' '+l.formulas.map(f=>f.label+' '+f.equation).join(' '));const score=(l.id===topic?2:0)+(query.includes(title)?30:0)+pairs.filter(c=>text.includes(c)).length*2+chars.filter(c=>title.includes(c)).length;return{lesson:l,score};}).filter(x=>x.score>2).sort((a,b)=>b.score-a.score).slice(0,4).map(x=>x.lesson);}
 const stringArray={type:'array',items:{type:'string'}};
@@ -44,7 +45,8 @@ export async function solveWithModel(env,prompt,question,image,history){const co
  if(typeof text!=='string')throw new Error('INVALID_MODEL_RESPONSE');text=text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');let parsed;try{parsed=JSON.parse(text);}catch{throw new Error('INVALID_MODEL_RESPONSE');}if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim())throw new Error('INVALID_MODEL_RESPONSE');return parsed;
 }
 async function api(request,env){const path=new URL(request.url).pathname;
- if(request.method==='GET'&&path==='/api/session')return json({user:await user(request,env),aiConfigured:aiConfiguration(env).ready,aiProvider:aiConfiguration(env).provider,visionConfigured:aiConfiguration(env).visionReady,imageConfigured:!!(env.OPENAI_IMAGE_API_KEY||env.OPENAI_API_KEY),mailConfigured:mailConfiguration(env).ready});
+ if(request.method==='GET'&&path==='/api/health'){await db(env).prepare('SELECT 1 AS ok').first();return json({status:'ok',release:'free-beta',database:'ok',aiConfigured:aiConfiguration(env).ready,visionConfigured:aiConfiguration(env).visionReady,mailConfigured:mailConfiguration(env).ready,upstreamTested:false});}
+ if(request.method==='GET'&&path==='/api/session'){const current=await user(request,env),limits=betaLimits(env),resetAt=(Math.floor(Date.now()/86400000)+1)*86400000;const usage=current?await db(env).prepare('SELECT count FROM limits WHERE key=?').bind('ai-user:'+current.id+':'+Math.floor(Date.now()/86400000)).first():null;return json({user:current,release:'free-beta',aiQuota:{dailyLimit:limits.user,remaining:current?Math.max(0,limits.user-(usage?.count||0)):null,resetAt},aiConfigured:aiConfiguration(env).ready,aiProvider:aiConfiguration(env).provider,visionConfigured:aiConfiguration(env).visionReady,imageConfigured:!!(env.OPENAI_IMAGE_API_KEY||env.OPENAI_API_KEY),mailConfigured:mailConfiguration(env).ready});}
  if(request.method!=='POST')return json({error:'请求方式不支持。'},405);
  const origin=request.headers.get('origin');if(origin!==new URL(request.url).origin)return json({error:'请求来源不匹配，请从网站页面操作。'},403);
  const bodyLimit=path==='/api/ask'?2300000:16000;
@@ -95,9 +97,9 @@ async function api(request,env){const path=new URL(request.url).pathname;
  return json({mode:'knowledge',answer,sources,simulation,scene3d:sceneFromSimulation(simulation),recognizedText:'',quantities:[],note:'当前使用文字规则解析和知识库，未调用 AI；图片识别与自由推理需要配置模型服务。'});}
  if(image&&!aiConfiguration(env).visionReady)return json({error:'题目与图片已保留。管理员尚未指定支持图片的视觉模型；请配置真实的 QWEN_VISION_MODEL。',code:'VISION_MODEL_NOT_CONFIGURED'},503);
  if(!u)return json({error:'请先使用邮箱登录，再使用 AI 识图与问答。',code:'LOGIN_REQUIRED'},401);
- const configuredLimit=Number(env.AI_DAILY_GLOBAL_LIMIT);
- const dailyGlobalLimit=Number.isInteger(configuredLimit)&&configuredLimit>=1&&configuredLimit<=1000?configuredLimit:100;
- if(!await limited(env,'ai-user:'+u.id,20,86400000)||!await limited(env,'ai-ip:'+ip,30,86400000)||!await limited(env,'ai-global',dailyGlobalLimit,86400000))return json({error:'今日问答额度已用完，请明天再试。'},429);
+ const limits=betaLimits(env);
+ if(!await limited(env,'ai-burst:'+u.id,6,60000))return json({error:'提问过于频繁，请稍等一分钟再试。题目与图片已保留。',code:'AI_RATE_LIMIT'},429,{'retry-after':'60'});
+ if(!await limited(env,'ai-user:'+u.id,limits.user,86400000)||!await limited(env,'ai-ip:'+ip,limits.ip,86400000)||!await limited(env,'ai-global',limits.global,86400000))return json({error:'免费测试额度已用完（账号、网络或全站上限）。题目与图片已保留，请在额度重置后再试。',code:'AI_DAILY_LIMIT'},429);
  const history=Array.isArray(body.history)?body.history.slice(-6).filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string'&&x.content.length<=4000).map(x=>({role:x.role,content:x.content})):[];
  const context=related.map(l=>({title:l.title,concepts:l.knowledge,details:l.details,mechanicsExtension:body.level==='uni'?l.mechanics:undefined,formulas:l.formulas.map(f=>({equation:clean(f.equation),condition:f.condition,units:f.symbols})),steps:l.steps,pitfall:l.pitfall}));
  const modelFields=Object.fromEntries(Object.entries(problemModels).map(([id,m])=>[id,{conditions:m.note,parameters:m.fields.map(f=>({key:f.key,label:f.label,unit:f.unit}))}]));

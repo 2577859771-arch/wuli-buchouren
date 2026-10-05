@@ -8,8 +8,9 @@ let visionConfigured=false,mailConfigured=false,recoveryToken=null;let account=n
 async function request(path,body,timeout=path==='ask'?100000:20000){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
  try{const r=await fetch('/api/'+path,{method:body?'POST':'GET',credentials:'same-origin',signal:controller.signal,headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});let data;try{data=await r.json();}catch{throw new Error('服务返回格式异常；题目与图片已保留。');}if(!r.ok){const error=new Error(data.error||'请求失败');error.code=data.code;error.status=r.status;throw error;}return data;}
- catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('服务连接超时或网络不可用；题目与图片已保留，请稍后重试。');throw error;}finally{clearTimeout(timer);}
+ catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('服务连接超时或网络不可用；题目与图片已保留，请稍后重试。');throw error;}finally{clearTimeout(timer);if(path==='ask')request('session',undefined,8000).then(renderQuota).catch(()=>{if($('#beta-quota'))$('#beta-quota').textContent='免费测试 · 额度状态暂不可用，请稍后刷新。';});}
 }
+function renderQuota(data){const node=$('#beta-quota');if(!node)return;const quota=data.aiQuota;if(!data.aiConfigured){node.textContent='免费测试 · 当前仅提供文字规则解析，未接通 AI 识图。';return;}if(!quota){node.textContent='免费测试 · AI 使用额度以服务器提示为准。';return;}const remaining=data.user?'本周期剩余 '+quota.remaining+' / '+quota.dailyLimit+' 次':'登录后每个账号每日最多 '+quota.dailyLimit+' 次';node.textContent='免费测试 · '+remaining+' · 北京时间每天 08:00 重置；失败的模型请求也计次，全站另有总量上限。';}
 function accountUI(){ $('#account-button').textContent=account?'我的账号':'邮箱登录';$('#account-email').textContent=account?.email||'';$('#account-user').hidden=!account;$('#account-form').hidden=!!account;$('#ai-status').textContent=configured?(visionConfigured?(account?'AI 识图与答疑 · 配置已加载':'AI 识图与答疑 · 本站邮箱登录后可用'):'AI 文字答疑 · 识图模型待配置'):'文字解析与动图可用 · 识图服务待配置';$('#qa-mode-note').textContent=configured?(visionConfigured?'上传或输入题目，先核对数据，再查看解答与物理过程。':'可输入文字题进行 AI 答疑；支持图片的视觉模型尚未配置。'):'可以输入文字题并生成数据动图；图片识别与 AI 解答待模型服务接通。';
  $('#verification-status').textContent=account?.emailVerified?'邮箱已验证 ✓':mailConfigured?'邮箱尚未验证，可发送验证邮件。':'邮箱尚未验证；验证和找回邮件服务待管理员配置。';
  $('#send-verification').hidden=!account||!!account.emailVerified;$('#send-verification').disabled=!mailConfigured;
@@ -24,7 +25,7 @@ function setMode(next){mode=next;const forgot=mode==='forgot',reset=mode==='rese
  $('#account-help').textContent=forgot?'若邮箱已注册，我们会发送 30 分钟内有效的重设链接。':reset?'设置 10–128 个字符的新密码，所有旧登录会失效。':'密码为 10–128 个字符。课程与实验无需登录。';
 }
 async function session(){const bar=$('#ai-status');bar.textContent='正在检查服务…';
- try{const data=await request('session',undefined,8000);account=data.user;configured=!!data.aiConfigured;visionConfigured=data.visionConfigured===undefined?configured:!!data.visionConfigured;mailConfigured=!!data.mailConfigured;accountUI();if(data.previewOnly){$('#account-button').textContent='公开预览';$('#account-button').disabled=true;$('#account-button').title='此预览未接入原站用户数据库';}}
+ try{const data=await request('session',undefined,8000);account=data.user;configured=!!data.aiConfigured;visionConfigured=data.visionConfigured===undefined?configured:!!data.visionConfigured;mailConfigured=!!data.mailConfigured;accountUI();renderQuota(data);if(data.previewOnly){$('#account-button').textContent='公开预览';$('#account-button').disabled=true;$('#account-button').title='此预览未接入原站用户数据库';}}
  catch{bar.textContent='答疑服务暂不可用；课程和实验仍可使用。';const retry=document.createElement('button');retry.className='outline-button';retry.textContent='重试连接';retry.addEventListener('click',session);bar.append(retry);}
 }
 function showAccount(){ $('#account-error').textContent='';$('#account-dialog').showModal();setTimeout(()=>{if(!account)$(mode==='reset'?'#password':'#email').focus();},0);}
